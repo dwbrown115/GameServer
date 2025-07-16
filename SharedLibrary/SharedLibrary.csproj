@@ -1,0 +1,52 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <OutputType>Library</OutputType> <!-- Explicitly tells MSBuild to produce a DLL -->
+        <AssemblyName>SharedLibrary</AssemblyName> <!-- Ensures the DLL has a predictable name -->
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+<!--    <Target Name="CopySharedLibraryWindows" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('Windows'))">-->
+<!--        <MakeDir Directories="C:\Users\DakotaBrown\Documents\Unity\GameServerTestGame\Assets\DLLs"/>-->
+<!--        <Copy SourceFiles="$(TargetPath)" DestinationFiles="C:\Users\DakotaBrown\Documents\Unity\GameServerTestGame\Assets\DLLs\SharedLibrary.dll"/>-->
+<!--    </Target>-->
+
+<!--    <Target Name="CopySharedLibraryOSX" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('OSX'))">-->
+<!--        <MakeDir Directories="/Users/dakotabrown/Documents/Unity/GameServerTestGame/Assets/DLLs"/>-->
+<!--        <Copy SourceFiles="$(TargetPath)" DestinationFiles="/Users/dakotabrown/Documents/Unity/GameServerTestGame/Assets/DLLs/SharedLibrary.dll"/>-->
+<!--    </Target>-->
+
+<!--    <Target Name="CopySharedLibraryLinux" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('Linux'))">-->
+<!--        <MakeDir Directories="/home/dakotabrown/Documents/Unity/GameServerTestGame/Assets/DLLs"/>-->
+<!--        <Copy SourceFiles="$(TargetPath)" DestinationFiles="/home/dakotabrown/Documents/Unity/GameServerTestGame/Assets/DLLs/SharedLibrary.dll"/>-->
+<!--    </Target>-->
+
+
+    <!--    &lt;!&ndash; Make sure output folder exists &ndash;&gt;-->
+    <!--    <Target Name="EnsureOutputFolderExists" BeforeTargets="PostBuildEvent">-->
+    <!--        <MakeDir Directories="/Users/dakotabrown/Documents/Unity/GameServerTestGame/Assets/DLLs" />-->
+    <!--        <Copy SourceFiles="$(TargetPath)" DestinationFiles="/Users/dakotabrown/Documents/Unity/GameServerTestGame/Assets/DLLs/SharedLibrary.dll" />-->
+    <!--    </Target>-->
+
+    <!--    <PropertyGroup>-->
+    <!--        &lt;!&ndash; Linux &ndash;&gt;-->
+    <!--        <PostBuildEvent Condition="$([MSBuild]::IsOSPlatform('Linux'))">-->
+    <!--            cp "$(TargetPath)" "/Users/dakotabrown/Documents/Unity/GameServerTestGame/Assets/DLLs/SharedLibrary.dll"-->
+    <!--        </PostBuildEvent>-->
+
+    <!--        &lt;!&ndash; macOS &ndash;&gt;-->
+    <!--        <PostBuildEvent Condition="$([MSBuild]::IsOSPlatform('OSX'))">-->
+    <!--            echo "TargetPath is: $(TargetPath)" &amp;&amp;-->
+    <!--            echo "Copying '$(TargetPath)' to '/Users/dakotabrown/Documents/Unity/GameServerTestGame/Assets/DLLs'" &amp;&amp;-->
+    <!--            cp "$(TargetPath)" "/Users/dakotabrown/Documents/Unity/GameServerTestGame/Assets/DLLs/SharedLibrary.dll"-->
+    <!--        </PostBuildEvent>-->
+
+    <!--        &lt;!&ndash; Windows &ndash;&gt;-->
+    <!--        <PostBuildEvent Condition="$([MSBuild]::IsOSPlatform('Windows'))">-->
+    <!--            copy "$(TargetPath)" "$(OutDir)..\..\..\..\Documents\Unity\GameServerTestGame\Assets\DLLs\SharedLibrary.dll"-->
+    <!--        </PostBuildEvent>-->
+    <!--    </PropertyGroup>-->
+
+</Project>
