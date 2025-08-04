@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Mvc;
 using GameServer.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.IdentityModel.Tokens;
 using SharedLibrary.Requests;
@@ -24,7 +24,8 @@ public class AuthenticationController : ControllerBase
     public async Task<IActionResult> Register(AuthenticationRequest request)
     {
         var (success, content) = _authService.Register(request.Username, request.Password);
-        if (!success) return BadRequest(content);
+        if (!success)
+            return BadRequest(content);
 
         return await Login(request);
     }
@@ -33,7 +34,8 @@ public class AuthenticationController : ControllerBase
     public async Task<IActionResult> Login([FromBody] AuthenticationRequest request)
     {
         var result = await _authService.Login(request);
-        if (result == null) return Unauthorized();
+        if (result == null)
+            return Unauthorized();
         // Console.Write("Response: " + result.Token + " + " + result.RefreshToken + " + " + result.ExpiresAt + " + " + result.UserId);
 
         return Ok(result);
@@ -42,7 +44,7 @@ public class AuthenticationController : ControllerBase
     [HttpPost("logout")]
     public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
     {
-        bool success = await _authService.LogoutAsync(request.UserId, request.DeviceId, request.RefreshToken);
+        bool success = await _authService.LogoutAsync(request.DeviceId, request.RefreshToken);
         if (!success)
             return NotFound("Token not found or already revoked");
 
@@ -59,7 +61,8 @@ public class AuthenticationController : ControllerBase
             request.RefreshToken
         );
 
-        if (result == null) return Unauthorized("Token invalid or expired");
+        if (result == null)
+            return Unauthorized("Token invalid or expired");
         return Ok(result);
     }
 }
