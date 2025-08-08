@@ -1,8 +1,7 @@
-using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-// namespace SharedLibrary.Models;
+namespace SharedLibrary.Models;
 
 [Table("JwtTokens", Schema = "auth")]
 public class JwtToken
@@ -11,11 +10,11 @@ public class JwtToken
     public int Id { get; set; }
 
     [Required]
-    public string EncryptedToken { get; set; }
+    public required string EncryptedToken { get; set; }
 
     [Required]
     [MaxLength(100)]
-    public string UserId { get; set; }
+    public required string UserId { get; set; }
 
     public DateTime IssuedAt { get; set; }
 
@@ -24,10 +23,10 @@ public class JwtToken
     public bool IsRevoked { get; set; } = false;
 
     [Required]
-    public byte[] SecretKey { get; set; }
+    public required byte[] SecretKey { get; set; }
 
     [MaxLength(256)]
-    public string RefreshToken { get; set; }
+    public required string RefreshToken { get; set; }
 
     public DateTime? RefreshExpires { get; set; }
 }

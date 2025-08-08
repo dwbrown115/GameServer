@@ -1,12 +1,11 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text;
 using GameServer.Models;
 using GameServer.Utilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using SharedLibrary;
+using SharedLibrary.Models;
 using SharedLibrary.Responses;
 
 namespace GameServer.Services;
@@ -240,6 +239,7 @@ public class JwtService : IJwtService
 
             return new AuthenticationResponse
             {
+                UserId = userId,
                 Token = GenerateJwt(userId, newToken.SecretKey),
                 RefreshToken = newToken.EncryptedRefreshToken, // This is the plain text token for the client
                 ExpiresAt = DateTime.UtcNow.AddMinutes(30), // Expiry of the new JWT
@@ -251,6 +251,7 @@ public class JwtService : IJwtService
         var jwtToken = handler.ReadJwtToken(token);
         return new AuthenticationResponse
         {
+            UserId = userId,
             Token = token,
             RefreshToken = refreshToken,
             ExpiresAt = jwtToken.ValidTo, // Use the actual expiry from the token

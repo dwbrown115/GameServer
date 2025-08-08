@@ -2,6 +2,6 @@ namespace SharedLibrary.Responses;
 
 public class PlayerResponse
 {
-    public string UserId { get; set; }
-    public string UserName { get; set; }
+    public required string UserId { get; set; }
+    public required string UserName { get; set; }
 }

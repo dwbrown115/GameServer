@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using SharedLibrary;
+using SharedLibrary.Models;
 using SharedLibrary.Requests;
 using SharedLibrary.Responses;
 

@@ -8,11 +8,11 @@ namespace SharedLibrary.Requests;
 public class PlayerChangeRequest
 {
     [Required]
-    public string UserId { get; set; }
+    public required string UserId { get; set; }
     [Required]
-    public string DeviceId { get; set; }
+    public required string DeviceId { get; set; }
     [Required]
-    public string RefreshToken { get; set; }
+    public required string RefreshToken { get; set; }
     
     // This object is not required, but if it's present, its contents will be validated.
     public PlayerChangesPayload? Changes { get; set; }
@@ -29,7 +29,7 @@ public class PlayerChangesPayload
 public class PasswordChangePayload
 {
     [Required]
-    public string OldPassword { get; set; }
+    public required string OldPassword { get; set; }
     [Required]
-    public string NewPassword { get; set; }
+    public required string NewPassword { get; set; }
 }

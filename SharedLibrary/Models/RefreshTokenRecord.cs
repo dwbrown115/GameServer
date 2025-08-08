@@ -2,7 +2,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace SharedLibrary
+namespace SharedLibrary.Models
 {
     [Table("RefreshTokenRecord", Schema = "auth")]
     public class RefreshTokenRecord
@@ -12,16 +12,16 @@ namespace SharedLibrary
         public int Id { get; set; } // Auto-incrementing primary key
 
         [Required]
-        public string UserId { get; set; }
+        public required string UserId { get; set; }
 
         [Required]
-        public string DeviceId { get; set; }
+        public required string DeviceId { get; set; }
 
         [Required]
-        public string EncryptedRefreshToken { get; set; }
+        public required string EncryptedRefreshToken { get; set; }
 
         [Required]
-        public byte[] SecretKey { get; set; }
+        public required byte[] SecretKey { get; set; }
 
         public DateTime ExpiresAt { get; set; }
 

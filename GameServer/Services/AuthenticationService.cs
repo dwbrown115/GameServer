@@ -4,7 +4,7 @@ using GameServer.Models;
 using GameServer.Utilities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SharedLibrary;
+using SharedLibrary.Models;
 using SharedLibrary.Requests;
 using SharedLibrary.Responses;
 
@@ -35,6 +35,7 @@ public class AuthenticationService : IAuthenticationService
             UUID = UserIdUtility.GenerateBase64UserId(),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
+            Salt = "",
         };
 
         user.ProvideSaltAndHash();
