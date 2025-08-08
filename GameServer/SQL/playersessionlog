@@ -1,0 +1,4 @@
+use MySecureApp;
+GO
+
+SELECT * FROM gameplay.PlayerSessionLog;

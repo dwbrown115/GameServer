@@ -7,15 +7,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SharedLibrary.Models;
 using SharedLibrary.Responses;
+using SharedLibrary.Results;
 
 namespace GameServer.Services;
-
-public class JwtValidationResult
-{
-    public bool IsValid { get; set; }
-    public string UserId { get; set; }
-    public bool ShouldRefresh { get; set; }
-}
 
 public interface IJwtService
 {

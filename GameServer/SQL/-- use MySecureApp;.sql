@@ -20,8 +20,8 @@
 -- DROP TABLE auth.JwtTokens;
 
 
-DELETE FROM users.Users           
-WHERE Id BETWEEN 1 and 1000000;                
+-- DELETE FROM users.Users           
+-- WHERE Id BETWEEN 1 and 1000000;                
 SELECT * FROM users.Users;
 -- DROP TABLE users.Users;
 
