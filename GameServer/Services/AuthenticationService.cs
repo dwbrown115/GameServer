@@ -42,6 +42,7 @@ public class AuthenticationService : IAuthenticationService
         _context.Users.Add(user);
         _context.SaveChanges();
 
+        Console.WriteLine($"[AuthenticationService] User '{username}' registered successfully with UUID: {user.UUID}");
         return (true, "");
     }
 
@@ -51,25 +52,25 @@ public class AuthenticationService : IAuthenticationService
         if (user == null || !VerifyPassword(request.Password, user.PasswordHash, user.Salt))
             return null;
 
-        // Console.WriteLine("device id: " + request.DeviceId);
-
         var tokenRecord = await _jwtService.GenerateAndStoreJwtAsync(user.UUID, request.DeviceId);
-        // Console.WriteLine("Token Record: "  + tokenRecord.Id);
         var jwt = _jwtService.GenerateJwt(user.UUID, tokenRecord.SecretKey);
-        // Console.WriteLine("JWT Token: " + jwt);
 
-        return new LoginResult
+        var loginResult = new LoginResult
         {
             UserId = user.UUID,
             Token = jwt,
             RefreshToken = tokenRecord.EncryptedRefreshToken,
             ExpiresAt = DateTime.UtcNow.AddMinutes(30),
         };
+
+        Console.WriteLine($"[AuthenticationService] User '{user.Username}' logged in successfully on device: {request.DeviceId}");
+        return loginResult;
     }
 
     public async Task<bool> LogoutAsync(string deviceId, string refreshToken)
     {
-        Console.WriteLine("LogoutAsync:" + " + " + deviceId + " + " + refreshToken);
+        // Do not log the refresh token itself for security.
+        Console.WriteLine($"[AuthenticationService] Attempting logout for DeviceId: {deviceId}");
         var record = await _jwtService.GetTokenAsync(deviceId, refreshToken);
         if (record == null || record.DeviceId != deviceId)
             return false;
@@ -77,6 +78,7 @@ public class AuthenticationService : IAuthenticationService
         record.IsRevoked = true;
         _context.RefreshTokens.Update(record);
         await _context.SaveChangesAsync();
+        Console.WriteLine($"[AuthenticationService] Token for DeviceId '{deviceId}' revoked successfully.");
         return true;
     }
 

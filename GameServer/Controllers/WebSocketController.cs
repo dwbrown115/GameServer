@@ -29,24 +29,15 @@ public class WebSocketController : ControllerBase
 
         var response = await _webSocketService.AuthenticateAsync(request);
 
-        // Manually serialize the response to JSON. This removes any ambiguity from the
-        // ASP.NET Core output formatters and ensures our log matches the response body exactly.
-        // The default settings for Newtonsoft produce camelCase, which the Unity client expects.
-        var jsonResponse = JsonConvert.SerializeObject(response);
-
         if (!response.Authenticated)
         {
-            Console.WriteLine(
-                $"[WebSocketController] Step 4: Sending Unauthorized response. Body: {jsonResponse}"
-            );
-            // Return the JSON string with a 401 Unauthorized status code.
-            return Content(jsonResponse, "application/json", System.Text.Encoding.UTF8);
+            Console.WriteLine($"[WebSocketController] Step 4: Sending Unauthorized response. Body: {JsonConvert.SerializeObject(response)}");
+            return Unauthorized(response);
         }
 
-        Console.WriteLine(
-            $"[WebSocketController] Step 4: Sending OK response. Body: {jsonResponse}"
-        );
-        // Return the JSON string with a 200 OK status code.
-        return Content(jsonResponse, "application/json", System.Text.Encoding.UTF8);
+        Console.WriteLine($"[WebSocketController] Step 4: Sending OK response. Body: {JsonConvert.SerializeObject(response)}");
+        // Using Ok(response) is the standard and recommended way. It lets the framework
+        // handle content negotiation and correctly formats the response.
+        return Ok(response);
     }
 }

@@ -286,6 +286,8 @@ public class JwtService : IJwtService
 
     public string DecryptRefreshToken(string encrypted, byte[] key)
     {
+        // SECURITY: This method logs sensitive token information and should only be used for debugging.
+        // It is not recommended for use in a production environment.
         Console.WriteLine(
             "Decrypting Refresh Token: " + encrypted + " + " + Convert.ToBase64String(key)
         );

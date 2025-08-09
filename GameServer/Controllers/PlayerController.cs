@@ -1,5 +1,6 @@
 using GameServer.Services;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using SharedLibrary.Requests;
 using SharedLibrary.Responses;
 
@@ -39,16 +40,13 @@ public class PlayerController : ControllerBase
     [ProducesResponseType(typeof(object), 401)] // For auth errors
     public async Task<IActionResult> UpdatePlayer([FromBody] PlayerChangeRequest request)
     {
-        Console.WriteLine("Request: " + request);
+        Console.WriteLine($"[PlayerController] Received update request: {JsonConvert.SerializeObject(request)}");
         var changeResponse = await _playerService.UpdatePlayerDataAsync(request);
 
         if (!changeResponse.Success)
         {
             // Distinguish between an authentication failure and a data validation failure.
-            if (
-                changeResponse.Message.Contains("session")
-                || changeResponse.Message.Contains("token")
-            )
+            if (changeResponse.Message.Contains("session") || changeResponse.Message.Contains("token"))
             {
                 return Unauthorized(new { message = changeResponse.Message });
             }
