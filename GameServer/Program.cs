@@ -5,7 +5,8 @@ using GameServer.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Newtonsoft.Json;
+using Newtonsoft.Json; // This is for ReferenceLoopHandling
+using Newtonsoft.Json.Serialization; // This is for the ContractResolver
 
 var builder = WebApplication.CreateBuilder(args);
 

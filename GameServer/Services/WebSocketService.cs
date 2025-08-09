@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SharedLibrary.Models;
 using SharedLibrary.Requests;
 using SharedLibrary.Responses;
@@ -17,6 +18,10 @@ public class WebSocketService : IWebSocketService
 
     public async Task<WebSocketAuthResponse> AuthenticateAsync(WebSocketAuthRequest request)
     {
+        Console.WriteLine(
+            $"[WebSocketService] Step 2: Validating tokens via JwtService. Input: {JsonSerializer.Serialize(request)}"
+        );
+
         // Validate the tokens using the existing robust logic in JwtService
         var authResult = await _jwtService.ValidateOrRefreshAsync(
             request.UserId,
@@ -27,6 +32,9 @@ public class WebSocketService : IWebSocketService
 
         if (authResult == null)
         {
+            Console.WriteLine(
+                "[WebSocketService] Token validation failed. Returning unauthenticated."
+            );
             return new WebSocketAuthResponse
             {
                 Authenticated = false,
@@ -34,7 +42,13 @@ public class WebSocketService : IWebSocketService
             };
         }
 
+        Console.WriteLine(
+            $"[WebSocketService] Token validation successful. AuthResult: {JsonSerializer.Serialize(authResult)}"
+        );
+
         var sessionId = Guid.NewGuid().ToString();
+
+        Console.WriteLine($"[WebSocketService] Generated new SessionId: {sessionId}");
 
         var sessionLog = new PlayerSessionLog
         {
@@ -57,8 +71,12 @@ public class WebSocketService : IWebSocketService
 
         try
         {
+            Console.WriteLine(
+                $"[WebSocketService] Step 3: Creating new PlayerSessionLog in database for PlayerId: {request.UserId}"
+            );
             await _context.PlayerSessionLogs.AddAsync(sessionLog);
             await _context.SaveChangesAsync();
+            Console.WriteLine("[WebSocketService] PlayerSessionLog created successfully.");
 
             var response = new WebSocketAuthResponse
             {
@@ -70,6 +88,9 @@ public class WebSocketService : IWebSocketService
             // If the tokens were refreshed, include the new ones in the response.
             if (authResult.Token != request.JwtToken)
             {
+                Console.WriteLine(
+                    "[WebSocketService] Tokens were refreshed. Adding new tokens to the response."
+                );
                 response.Token = authResult.Token;
                 response.RefreshToken = authResult.RefreshToken;
             }

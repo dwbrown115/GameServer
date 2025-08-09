@@ -191,10 +191,18 @@ public class JwtService : IJwtService
         string refreshToken
     )
     {
+        Console.WriteLine(
+            $"[JwtService] ValidateOrRefreshAsync called. UserId: {userId}, DeviceId: {deviceId}"
+        );
+
         // 1. Pull eligible, NON-REVOKED records from the database.
         var candidates = await _context
             .RefreshTokens.Where(r => r.DeviceId == deviceId && !r.IsRevoked) // <-- FIX: Fetch non-revoked tokens
             .ToListAsync();
+
+        Console.WriteLine(
+            $"[JwtService] Found {candidates.Count} non-revoked token candidates for DeviceId: {deviceId}"
+        );
 
         // 2. Run decryption securely in memory to find the matching token
         var record = candidates.FirstOrDefault(r =>
@@ -215,14 +223,27 @@ public class JwtService : IJwtService
         // 3. If no matching token is found, or if it has expired, it's invalid.
         if (record == null || record.ExpiresAt < DateTime.UtcNow)
         {
+            Console.WriteLine(
+                $"[JwtService] No valid refresh token record found or it has expired. Expiry: {record?.ExpiresAt}"
+            );
             return null;
         }
 
+        Console.WriteLine($"[JwtService] Found matching refresh token record. Id: {record.Id}");
+
         var validation = ValidateEncryptedToken(token, record.SecretKey);
+
+        Console.WriteLine(
+            $"[JwtService] JWT validation result: IsValid={validation.IsValid}, ShouldRefresh={validation.ShouldRefresh}"
+        );
 
         // 4. If the main JWT is invalid or needs to be refreshed
         if (!validation.IsValid || validation.ShouldRefresh)
         {
+            Console.WriteLine(
+                "[JwtService] JWT is invalid or needs refresh. Generating new token pair."
+            );
+
             // Revoke the old refresh token
             record.IsRevoked = true;
             _context.RefreshTokens.Update(record);
@@ -231,18 +252,29 @@ public class JwtService : IJwtService
             var newToken = await GenerateAndStoreJwtAsync(userId, deviceId);
             await _context.SaveChangesAsync(); // Save the revocation and the new token
 
-            return new AuthenticationResponse
+            var newAuthResponse = new AuthenticationResponse
             {
                 UserId = userId,
                 Token = GenerateJwt(userId, newToken.SecretKey),
                 RefreshToken = newToken.EncryptedRefreshToken, // This is the plain text token for the client
                 ExpiresAt = DateTime.UtcNow.AddMinutes(30), // Expiry of the new JWT
             };
+
+            Console.WriteLine(
+                $"[JwtService] New token pair generated and returned. New JWT: {newAuthResponse.Token.Substring(0, 15)}..."
+            );
+
+            return newAuthResponse;
         }
 
         // 5. If the current token is still valid, return it with its correct expiry.
         var handler = new JwtSecurityTokenHandler();
         var jwtToken = handler.ReadJwtToken(token);
+
+        Console.WriteLine(
+            "[JwtService] Current JWT is valid and does not need refresh. Returning existing tokens."
+        );
+
         return new AuthenticationResponse
         {
             UserId = userId,
