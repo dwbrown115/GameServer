@@ -18,6 +18,11 @@ builder.Services.AddDbContext<GameDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("Db"))
 );
 
+// Migration-only context for database migrations
+builder.Services.AddDbContext<MigrationOnlyContext>(o =>
+    o.UseSqlServer(builder.Configuration.GetConnectionString("Db"))
+);
+
 builder
     .Services.AddControllers()
     .AddNewtonsoftJson(o =>
@@ -28,6 +33,7 @@ builder
 builder.Services.AddScoped<IPlayerService, PlayerService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IWebSocketService, WebSocketService>();
 
 builder
     .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

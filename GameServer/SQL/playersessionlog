@@ -1,4 +1,9 @@
-use MySecureApp;
-GO
+-- use MySecureApp;
+-- GO
 
-SELECT * FROM gameplay.PlayerSessionLog;
+-- ALTER TABLE gameplay.PlayerSessionLog
+-- ADD device_id VARCHAR(255) NOT NULL;
+-- DELETE FROM gameplay.PlayerSessionLog   
+-- WHERE Id BETWEEN 1 and 1000000;
+-- 
+SELECT * FROM gameplay.PlayerSessionLog; 
