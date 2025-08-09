@@ -1,4 +1,4 @@
-using System.Text.Json;
+using Newtonsoft.Json; // Use Newtonsoft for logging consistency
 using SharedLibrary.Models;
 using SharedLibrary.Requests;
 using SharedLibrary.Responses;
@@ -19,7 +19,7 @@ public class WebSocketService : IWebSocketService
     public async Task<WebSocketAuthResponse> AuthenticateAsync(WebSocketAuthRequest request)
     {
         Console.WriteLine(
-            $"[WebSocketService] Step 2: Validating tokens via JwtService. Input: {JsonSerializer.Serialize(request)}"
+            $"[WebSocketService] Step 2: Validating tokens via JwtService. Input: {JsonConvert.SerializeObject(request)}"
         );
 
         // Validate the tokens using the existing robust logic in JwtService
@@ -43,7 +43,7 @@ public class WebSocketService : IWebSocketService
         }
 
         Console.WriteLine(
-            $"[WebSocketService] Token validation successful. AuthResult: {JsonSerializer.Serialize(authResult)}"
+            $"[WebSocketService] Token validation successful. AuthResult: {JsonConvert.SerializeObject(authResult)}"
         );
 
         var sessionId = Guid.NewGuid().ToString();
