@@ -70,6 +70,17 @@ public class WebSocketHandler : IWebSocketHandler
                     if (positionMessage != null)
                     {
                         _logger.LogInformation("Player {PlayerId} position update: X={X}, Y={Y}", sessionLog.PlayerId, positionMessage.X, positionMessage.Y);
+
+                        // Create and send the response back to the client
+                        var response = new SharedLibrary.Responses.PlayerPositionResponse
+                        {
+                            X = positionMessage.X,
+                            Y = positionMessage.Y,
+                            Status = "Received by server at " + DateTime.UtcNow.ToString("o")
+                        };
+                        var responseString = JsonConvert.SerializeObject(response);
+                        var responseBytes = Encoding.UTF8.GetBytes(responseString);
+                        await socket.SendAsync(new ArraySegment<byte>(responseBytes), WebSocketMessageType.Text, true, CancellationToken.None);
                     }
                 }
                 catch (JsonException jsonEx)
