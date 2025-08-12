@@ -141,8 +141,9 @@ public class PlayerService : IPlayerService
             }
 
             // 2. If verification passes, update the password.
-            user.PasswordHash = newPassword;
-            user.ProvideSaltAndHash(); // This creates a new salt and hashes the new password.
+            var (salt, hash) = AuthenticationHelpers.GenerateSaltAndHash(newPassword);
+            user.Salt = salt;
+            user.PasswordHash = hash;
         }
 
         return (true, string.Empty);

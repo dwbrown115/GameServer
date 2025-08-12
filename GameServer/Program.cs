@@ -49,13 +49,25 @@ builder
         o.TokenValidationParameters = new TokenValidationParameters()
         {
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.ASCII.GetBytes(settings.BearerKey)
+                Encoding.ASCII.GetBytes(settings.BearerKey ?? "")
             ),
             ValidateIssuerSigningKey = true,
             ValidateAudience = false,
             ValidateIssuer = false,
         };
     });
+
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Listen(
+        System.Net.IPAddress.Any,
+        7123,
+        listenOptions =>
+        {
+            listenOptions.UseHttps("server.pfx", "");
+        }
+    );
+});
 
 var app = builder.Build();
 
