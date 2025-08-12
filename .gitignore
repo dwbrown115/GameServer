@@ -4,3 +4,8 @@ obj/
 riderModule.iml
 /_ReSharper.Caches/
 Improvements.txt
+
+# Certificates
+GameServer/server.crt
+GameServer/server.key
+GameServer/server.pfx
