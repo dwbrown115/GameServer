@@ -28,17 +28,18 @@ public class AuthenticationService : IAuthenticationService
         if (_context.Users.Any(u => u.Username == username))
             return (false, "Username not available");
 
+        var (salt, hash) = AuthenticationHelpers.GenerateSaltAndHash(password);
+
         var user = new User
         {
             Username = username,
-            PasswordHash = password,
+            PasswordHash = hash,
             UUID = UserIdUtility.GenerateBase64UserId(),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
-            Salt = "",
+            Salt = salt,
         };
 
-        user.ProvideSaltAndHash();
         _context.Users.Add(user);
         _context.SaveChanges();
 
@@ -46,10 +47,10 @@ public class AuthenticationService : IAuthenticationService
         return (true, "");
     }
 
-    public async Task<LoginResult> Login(AuthenticationRequest request)
+    public async Task<LoginResult?> Login(AuthenticationRequest request)
     {
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
-        if (user == null || !VerifyPassword(request.Password, user.PasswordHash, user.Salt))
+        if (user == null || !AuthenticationHelpers.VerifyPassword(request.Password, user.PasswordHash, user.Salt))
             return null;
 
         var tokenRecord = await _jwtService.GenerateAndStoreJwtAsync(user.UUID, request.DeviceId);
@@ -82,11 +83,6 @@ public class AuthenticationService : IAuthenticationService
         return true;
     }
 
-    private bool VerifyPassword(string password, string passwordHash, string passwordSalt)
-    {
-        return passwordHash == AuthenticationHelpers.ComputeHash(password, passwordSalt);
-    }
-
     public IActionResult UnauthorizedResponse(string reason = "Unauthorized access")
     {
         return new UnauthorizedObjectResult(
@@ -114,17 +110,18 @@ public class AuthenticationService : IAuthenticationService
 public interface IAuthenticationService
 {
     (bool success, string content) Register(string username, string password);
-    Task<LoginResult> Login(AuthenticationRequest request);
+    Task<LoginResult?> Login(AuthenticationRequest request);
     Task<bool> LogoutAsync(string deviceId, string refreshToken);
 }
 
 public static class AuthenticationHelpers
 {
-    public static void ProvideSaltAndHash(this User user)
+    public static (string salt, string hash) GenerateSaltAndHash(string password)
     {
-        var salt = GenerateSalt();
-        user.Salt = Convert.ToBase64String(salt);
-        user.PasswordHash = ComputeHash(user.PasswordHash, user.Salt);
+        var saltBytes = GenerateSalt();
+        var salt = Convert.ToBase64String(saltBytes);
+        var hash = ComputeHash(password, salt);
+        return (salt, hash);
     }
 
     private static byte[] GenerateSalt()
@@ -158,42 +155,3 @@ public static class AuthenticationHelpers
         return storedHash == ComputeHash(password, storedSalt);
     }
 }
-
-
-// public async Task<IActionResult> Login(AuthenticationRequest request) {
-//     var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
-//     if (user == null || !VerifyPassword(request.Password, user.PasswordHash, user.Salt)) return UnauthorizedResponse();
-//
-//     var jwt = await _jwtService.GenerateAndStoreJwtAsync(user.UUID);
-//
-//     // return Results.Ok(new
-//     // {
-//     //     token = jwt,
-//     //     refreshToken = jwt.RefreshToken,
-//     //     username = user.Username,
-//     // });
-//     // var user = await _context.Users.SingleOrDefaultAsync(u => u.Username == request.Username);
-//     // if (user == null) return (false, "Invalid username");
-//
-//     // if (user.PasswordHash != AuthenticationHelpers.ComputeHash(password, user.Salt)) return (false, "Invalid password");
-//     // Console.WriteLine($"Logging in {username}");
-//     // return (true, GenerateJwtToken(AssembleClaimsIdentity(user)));
-//
-//
-//     // return OkResponse({new token = jwt.})
-//
-// }
-// private string GenerateJwtToken(ClaimsIdentity subject, string uuid) {
-//     Console.WriteLine("UUID: " + uuid);
-//     var tokenHandler = new JwtSecurityTokenHandler();
-//     var key = Encoding.ASCII.GetBytes(_settings.BearerKey);
-//     var tokenDescriptor = new SecurityTokenDescriptor {
-//         Subject = subject,
-//         Expires = DateTime.Now.AddDays(14),
-//         SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-//     };
-//     var token = tokenHandler.CreateToken(tokenDescriptor);
-//
-//     // var JwtToken = new JwtToken {}
-//     return tokenHandler.WriteToken(token);
-// }

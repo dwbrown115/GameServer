@@ -15,15 +15,15 @@ public interface IJwtService
 {
     JwtValidationResult ValidateEncryptedToken(string token, byte[] secretKey);
     Task<RefreshTokenRecord> GenerateAndStoreJwtAsync(string userId, string deviceId);
-    Task<RefreshTokenRecord> GetTokenAsync(string deviceId, string refreshToken);
-    Task<RefreshTokenRecord> RefreshTokenAsync(string userId, string deviceId, string refreshToken);
-    Task<AuthenticationResponse> ValidateOrRefreshAsync(
+    Task<RefreshTokenRecord?> GetTokenAsync(string deviceId, string refreshToken);
+    Task<RefreshTokenRecord?> RefreshTokenAsync(string userId, string deviceId, string refreshToken);
+    Task<AuthenticationResponse?> ValidateOrRefreshAsync(
         string userId,
         string deviceId,
         string token,
         string refreshToken
     );
-    string DecryptRefreshToken(string encrypted, byte[] key);
+    string? DecryptRefreshToken(string encrypted, byte[] key);
     string GenerateJwt(string userId, byte[] secretKey);
 }
 
@@ -184,7 +184,7 @@ public class JwtService : IJwtService
         return newRecord;
     }
 
-    public async Task<AuthenticationResponse> ValidateOrRefreshAsync(
+    public async Task<AuthenticationResponse?> ValidateOrRefreshAsync(
         string userId,
         string deviceId,
         string token,
@@ -284,7 +284,7 @@ public class JwtService : IJwtService
         };
     }
 
-    public string DecryptRefreshToken(string encrypted, byte[] key)
+    public string? DecryptRefreshToken(string encrypted, byte[] key)
     {
         // SECURITY: This method logs sensitive token information and should only be used for debugging.
         // It is not recommended for use in a production environment.
