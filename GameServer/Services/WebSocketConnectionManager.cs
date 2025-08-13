@@ -25,19 +25,33 @@ public class WebSocketConnectionManager : IWebSocketConnectionManager
         {
             try
             {
-                if (socket.State == WebSocketState.Open || socket.State == WebSocketState.CloseReceived)
+                if (
+                    socket.State == WebSocketState.Open
+                    || socket.State == WebSocketState.CloseReceived
+                )
                 {
-                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed by server.", CancellationToken.None);
+                    await socket.CloseAsync(
+                        WebSocketCloseStatus.NormalClosure,
+                        "Connection closed by server.",
+                        CancellationToken.None
+                    );
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error closing WebSocket for SessionId: {SessionId}", sessionId);
+                _logger.LogError(
+                    ex,
+                    "Error closing WebSocket for SessionId: {SessionId}",
+                    sessionId
+                );
             }
             finally
             {
                 socket.Dispose();
-                _logger.LogInformation("WebSocket disconnected for SessionId: {SessionId}", sessionId);
+                _logger.LogInformation(
+                    "WebSocket disconnected for SessionId: {SessionId}",
+                    sessionId
+                );
             }
         }
     }

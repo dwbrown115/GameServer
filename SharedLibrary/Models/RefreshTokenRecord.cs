@@ -19,8 +19,7 @@ namespace SharedLibrary.Models
         [Required]
         public required string EncryptedRefreshToken { get; set; }
 
-        [Required]
-        public required byte[] SecretKey { get; set; }
+        
 
         public DateTime ExpiresAt { get; set; }
 
