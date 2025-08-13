@@ -40,7 +40,7 @@ public class PlayerController : ControllerBase
     [ProducesResponseType(typeof(object), 401)] // For auth errors
     public async Task<IActionResult> UpdatePlayer([FromBody] PlayerChangeRequest request)
     {
-        Console.WriteLine($"[PlayerController] Received update request: {JsonConvert.SerializeObject(request)}");
+        // Console.WriteLine($"[PlayerController] Received update request: {JsonConvert.SerializeObject(request)}");
         var changeResponse = await _playerService.UpdatePlayerDataAsync(request);
 
         if (!changeResponse.Success)

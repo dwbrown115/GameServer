@@ -13,7 +13,11 @@ public class WebSocketHandler : IWebSocketHandler
     private readonly IWebSocketConnectionManager _connectionManager;
     private readonly IServiceScopeFactory _scopeFactory;
 
-    public WebSocketHandler(ILogger<WebSocketHandler> logger, IWebSocketConnectionManager connectionManager, IServiceScopeFactory scopeFactory)
+    public WebSocketHandler(
+        ILogger<WebSocketHandler> logger,
+        IWebSocketConnectionManager connectionManager,
+        IServiceScopeFactory scopeFactory
+    )
     {
         _logger = logger;
         _connectionManager = connectionManager;
@@ -40,12 +44,16 @@ public class WebSocketHandler : IWebSocketHandler
         await using var scope = _scopeFactory.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<GameDbContext>();
 
-        var sessionLog = await dbContext.PlayerSessionLogs
-            .FirstOrDefaultAsync(s => s.SessionId == sessionId && s.SessionEnd == null);
+        var sessionLog = await dbContext.PlayerSessionLogs.FirstOrDefaultAsync(s =>
+            s.SessionId == sessionId && s.SessionEnd == null
+        );
 
         if (sessionLog == null)
         {
-            _logger.LogWarning("WebSocket connection rejected for invalid or expired SessionId: {SessionId}", sessionId);
+            _logger.LogWarning(
+                "WebSocket connection rejected for invalid or expired SessionId: {SessionId}",
+                sessionId
+            );
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             await context.Response.WriteAsync("Invalid or expired session.");
             return;
@@ -53,50 +61,114 @@ public class WebSocketHandler : IWebSocketHandler
 
         var socket = await context.WebSockets.AcceptWebSocketAsync();
         _connectionManager.AddSocket(sessionId, socket);
-        _logger.LogInformation("WebSocket connection established for PlayerId: {PlayerId} with SessionId: {SessionId}", sessionLog.PlayerId, sessionId);
+        _logger.LogInformation(
+            "WebSocket connection established for PlayerId: {PlayerId} with SessionId: {SessionId}",
+            sessionLog.PlayerId,
+            sessionId
+        );
 
         try
         {
             var buffer = new byte[1024 * 4];
-            var receiveResult = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+            WebSocketReceiveResult receiveResult;
 
-            while (!receiveResult.CloseStatus.HasValue)
+            do
             {
-                var messageString = Encoding.UTF8.GetString(buffer, 0, receiveResult.Count);
+                receiveResult = await socket.ReceiveAsync(
+                    new ArraySegment<byte>(buffer),
+                    CancellationToken.None
+                );
 
-                try
+                if (receiveResult.MessageType == WebSocketMessageType.Text)
                 {
-                    var positionMessage = JsonConvert.DeserializeObject<PlayerPositionMessage>(messageString);
-                    if (positionMessage != null)
-                    {
-                        _logger.LogInformation("Player {PlayerId} position update: X={X}, Y={Y}", sessionLog.PlayerId, positionMessage.X, positionMessage.Y);
+                    var messageString = Encoding.UTF8.GetString(buffer, 0, receiveResult.Count);
 
-                        // Create and send the response back to the client
-                        var response = new SharedLibrary.Responses.PlayerPositionResponse
+                    try
+                    {
+                        var positionMessage = JsonConvert.DeserializeObject<PlayerPositionMessage>(
+                            messageString
+                        );
+                        if (positionMessage != null)
                         {
-                            X = positionMessage.X,
-                            Y = positionMessage.Y,
-                            Status = "Received by server at " + DateTime.UtcNow.ToString("o")
-                        };
-                        var responseString = JsonConvert.SerializeObject(response);
-                        var responseBytes = Encoding.UTF8.GetBytes(responseString);
-                        await socket.SendAsync(new ArraySegment<byte>(responseBytes), WebSocketMessageType.Text, true, CancellationToken.None);
+                            // _logger.LogInformation(
+                            //     "Player {PlayerId} position update: X={X}, Y={Y}",
+                            //     sessionLog.PlayerId,
+                            //     positionMessage.X,
+                            //     positionMessage.Y
+                            // );
+
+                            // Create and send the response back to the client
+                            var response = new SharedLibrary.Responses.PlayerPositionResponse
+                            {
+                                X = positionMessage.X,
+                                Y = positionMessage.Y,
+                                Status = "Received by server at " + DateTime.UtcNow.ToString("o"),
+                            };
+                            var responseString = JsonConvert.SerializeObject(response);
+                            var responseBytes = Encoding.UTF8.GetBytes(responseString);
+                            await socket.SendAsync(
+                                new ArraySegment<byte>(responseBytes),
+                                WebSocketMessageType.Text,
+                                true,
+                                CancellationToken.None
+                            );
+                        }
+                    }
+                    catch (JsonException jsonEx)
+                    {
+                        _logger.LogWarning(
+                            "Could not deserialize message from SessionId {SessionId}. Error: {Error}. Message: {Message}",
+                            sessionId,
+                            jsonEx.Message,
+                            messageString
+                        );
                     }
                 }
-                catch (JsonException jsonEx)
+                else if (receiveResult.MessageType == WebSocketMessageType.Close)
                 {
-                    _logger.LogWarning("Could not deserialize message from SessionId {SessionId}. Error: {Error}. Message: {Message}", sessionId, jsonEx.Message, messageString);
+                    _logger.LogInformation(
+                        "Client initiated WebSocket close. Status: {Status}, Description: {Description}",
+                        receiveResult.CloseStatus,
+                        receiveResult.CloseStatusDescription
+                    );
+                    await socket.CloseAsync(
+                        receiveResult.CloseStatus!.Value,
+                        receiveResult.CloseStatusDescription,
+                        CancellationToken.None
+                    );
                 }
-
-                receiveResult = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-            }
+            } while (!receiveResult.CloseStatus.HasValue);
         }
         catch (WebSocketException ex)
         {
-            _logger.LogInformation("WebSocket connection closed for SessionId {SessionId}. Reason: {Message}", sessionId, ex.Message);
+            _logger.LogInformation(
+                "WebSocket connection closed for SessionId {SessionId}. Reason: {Message}",
+                sessionId,
+                ex.Message
+            );
         }
         finally
         {
+            // Ensure the socket is closed if it's still open
+            if (socket.State == WebSocketState.Open || socket.State == WebSocketState.CloseReceived)
+            {
+                try
+                {
+                    await socket.CloseAsync(
+                        WebSocketCloseStatus.InternalServerError,
+                        "Server closing connection",
+                        CancellationToken.None
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Error while closing WebSocket for SessionId: {SessionId}",
+                        sessionId
+                    );
+                }
+            }
             await _connectionManager.RemoveSocketAsync(sessionId);
         }
     }
