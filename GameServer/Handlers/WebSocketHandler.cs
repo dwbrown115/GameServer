@@ -1,9 +1,14 @@
 using System.Net.WebSockets;
 using System.Text;
+using GameServer.Models;
 using GameServer.Services;
+using GameServer.Utilities;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using SharedLibrary.Pings;
 using SharedLibrary.Requests;
+using SharedLibrary.Responses;
 
 namespace GameServer.Handlers;
 
@@ -12,16 +17,19 @@ public class WebSocketHandler : IWebSocketHandler
     private readonly ILogger<WebSocketHandler> _logger;
     private readonly IWebSocketConnectionManager _connectionManager;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly Settings _settings;
 
     public WebSocketHandler(
         ILogger<WebSocketHandler> logger,
         IWebSocketConnectionManager connectionManager,
-        IServiceScopeFactory scopeFactory
+        IServiceScopeFactory scopeFactory,
+        Settings settings
     )
     {
         _logger = logger;
         _connectionManager = connectionManager;
         _scopeFactory = scopeFactory;
+        _settings = settings;
     }
 
     public async Task HandleAsync(HttpContext context)
@@ -85,23 +93,35 @@ public class WebSocketHandler : IWebSocketHandler
 
                     try
                     {
-                        var positionMessage = JsonConvert.DeserializeObject<PlayerPositionMessage>(
-                            messageString
-                        );
-                        if (positionMessage != null)
+                        // Attempt to deserialize as PlayerPing
+                        var playerPing = JsonConvert.DeserializeObject<PlayerPing>(messageString);
+                        if (
+                            playerPing != null
+                            && !string.IsNullOrEmpty(playerPing.SessionId)
+                            && !string.IsNullOrEmpty(playerPing.PlayerId)
+                        )
                         {
-                            // _logger.LogInformation(
-                            //     "Player {PlayerId} position update: X={X}, Y={Y}",
-                            //     sessionLog.PlayerId,
-                            //     positionMessage.X,
-                            //     positionMessage.Y
-                            // );
+                            _logger.LogInformation(
+                                "Player {PlayerId} ping: SessionId={SessionId}, X={X}, Y={Y}, Radius={Radius}, LastSpawnAttempt={LastSpawnAttempt}",
+                                playerPing.PlayerId,
+                                playerPing.SessionId,
+                                playerPing.CurrentPosition?.X ?? 0.0f,
+                                playerPing.CurrentPosition?.Y ?? 0.0f,
+                                playerPing.Radius,
+                                playerPing.LastSpawnAttempt
+                            );
 
-                            // Create and send the response back to the client
-                            var response = new SharedLibrary.Responses.PlayerPositionResponse
+                            // Update LastKnownPosition in PlayerSessionLog
+                            if (sessionLog != null && playerPing.CurrentPosition != null)
                             {
-                                X = positionMessage.X,
-                                Y = positionMessage.Y,
+                                sessionLog.LastKnownPosition = playerPing.CurrentPosition;
+                                await dbContext.SaveChangesAsync();
+                            }
+
+                            // Send response
+                            var response = new PlayerPingResponse
+                            {
+                                SessionId = sessionId,
                                 Status = "Received by server at " + DateTime.UtcNow.ToString("o"),
                             };
                             var responseString = JsonConvert.SerializeObject(response);
@@ -112,6 +132,167 @@ public class WebSocketHandler : IWebSocketHandler
                                 true,
                                 CancellationToken.None
                             );
+                        }
+                        else
+                        {
+                            _logger.LogInformation("Attempting to deserialize as SpawnItemRequest. Raw message: {Message}", messageString);
+                            // Attempt to deserialize as SpawnItemRequest
+                            var spawnRequest = JsonConvert.DeserializeObject<SpawnItemRequest>(
+                                messageString
+                            );
+                            _logger.LogInformation("SpawnItemRequest deserialization result: {IsNull}", spawnRequest == null ? "null" : "not null");
+
+                            if (spawnRequest != null)
+                            {
+                                // Manually deserialize PlayerPosition
+                                JObject json = JObject.Parse(messageString);
+                                JToken playerPositionToken = json["player_position"];
+                                if (playerPositionToken != null)
+                                {
+                                    spawnRequest.PlayerPosition =
+                                        playerPositionToken.ToObject<SharedLibrary.Common.Position>();
+                                    _logger.LogInformation(
+                                        "Manually deserialized PlayerPosition: X={X}, Y={Y}",
+                                        spawnRequest.PlayerPosition.X,
+                                        spawnRequest.PlayerPosition.Y
+                                    );
+                                }
+
+                                // Deny if PlayerPosition is null
+                                if (spawnRequest.PlayerPosition == null)
+                                {
+                                    _logger.LogWarning(
+                                        "Spawn attempt denied: PlayerPosition is null."
+                                    );
+                                    var deniedResponse = new SpawnRequestResponse
+                                    {
+                                        SessionId = spawnRequest.SessionId,
+                                        Granted = false,
+                                        UniqueId = null,
+                                        SpawnPosition = null,
+                                    };
+                                    var deniedResponseString = JsonConvert.SerializeObject(
+                                        deniedResponse
+                                    );
+                                    var deniedResponseBytes = Encoding.UTF8.GetBytes(
+                                        deniedResponseString
+                                    );
+                                    await socket.SendAsync(
+                                        new ArraySegment<byte>(deniedResponseBytes),
+                                        WebSocketMessageType.Text,
+                                        true,
+                                        CancellationToken.None
+                                    );
+                                    _logger.LogInformation(
+                                        "Spawn response sent (denied due to null PlayerPosition)."
+                                    );
+                                    return; // Exit early
+                                }
+
+                                _logger.LogInformation(
+                                    "Spawn Item Request details: PlayerX={PlayerX}, PlayerY={PlayerY}, Timestamp={Timestamp}, Radius={Radius}",
+                                    spawnRequest.PlayerPosition?.X ?? 0.0f,
+                                    spawnRequest.PlayerPosition?.Y ?? 0.0f,
+                                    spawnRequest.SpawnAttemptTimestamp,
+                                    spawnRequest.SpawnRadius
+                                );
+
+                                bool granted = false;
+                                var spawnResponse = new SpawnRequestResponse
+                                {
+                                    SessionId = spawnRequest.SessionId,
+                                };
+
+                                // Check spawn attempt time using server's current time
+                                if (sessionLog.LastSpawnAttempt == null)
+                                {
+                                    // First spawn attempt, grant it
+                                    granted = true;
+                                    _logger.LogInformation("First spawn attempt granted.");
+                                }
+                                else
+                                {
+                                    TimeSpan timeSinceLastSpawn =
+                                        DateTime.UtcNow - sessionLog.LastSpawnAttempt.Value;
+                                    TimeSpan minimumElapsedTime = TimeSpan.FromSeconds(
+                                        _settings.SpawnCooldownSeconds ?? 5.0
+                                    ); // Use configurable cooldown
+
+                                    if (timeSinceLastSpawn >= minimumElapsedTime)
+                                    {
+                                        granted = true;
+                                        _logger.LogInformation(
+                                            "Spawn attempt granted after cooldown."
+                                        );
+                                    }
+                                    else
+                                    {
+                                        granted = false;
+                                        _logger.LogWarning(
+                                            "Spawn attempt denied: Not enough time elapsed since last spawn."
+                                        );
+                                    }
+                                }
+
+                                spawnResponse.Granted = granted;
+
+                                if (granted)
+                                {
+                                    _logger.LogInformation(
+                                        "Generating unique ID and spawn position."
+                                    );
+                                    // Generate unique ID and spawn position
+                                    var uniqueId = NumberGeneratorUtility.GenerateValidNumber(10); // Example length
+                                    var spawnPosition =
+                                        SpawnPositionUtility.GenerateRandomPositionInCircle(
+                                            spawnRequest.PlayerPosition,
+                                            spawnRequest.SpawnRadius,
+                                            _settings.NoSpawnRadius ?? 1.0f
+                                        );
+                                    spawnResponse.UniqueId = uniqueId;
+                                    spawnResponse.SpawnPosition = spawnPosition; // Corrected line
+
+                                    _logger.LogInformation(
+                                        "Updating session log with spawn details."
+                                    );
+                                    // Update session log with current spawn attempt details using server's current time
+                                    sessionLog.LastSpawnAttempt = DateTime.UtcNow;
+                                    sessionLog.CurrentSpawnRadius = spawnRequest.SpawnRadius;
+                                    await dbContext.SaveChangesAsync();
+                                    _logger.LogInformation("Session log updated successfully.");
+                                }
+                                else
+                                {
+                                    // Set response values to null if denied
+                                    spawnResponse.UniqueId = null;
+                                    spawnResponse.SpawnPosition = null;
+                                    _logger.LogInformation(
+                                        "Spawn response values set to null (denied)."
+                                    );
+                                }
+
+                                _logger.LogInformation("Sending spawn response to client.");
+                                var spawnResponseString = JsonConvert.SerializeObject(
+                                    spawnResponse
+                                );
+                                var spawnResponseBytes = Encoding.UTF8.GetBytes(
+                                    spawnResponseString
+                                );
+                                await socket.SendAsync(
+                                    new ArraySegment<byte>(spawnResponseBytes),
+                                    WebSocketMessageType.Text,
+                                    true,
+                                    CancellationToken.None
+                                );
+                                _logger.LogInformation("Spawn response sent.");
+                            }
+                            else
+                            {
+                                _logger.LogWarning(
+                                    "Received unhandled message: {Message}",
+                                    messageString
+                                );
+                            }
                         }
                     }
                     catch (JsonException jsonEx)

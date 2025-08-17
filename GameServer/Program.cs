@@ -32,6 +32,7 @@ builder
     .AddNewtonsoftJson(o =>
     {
         o.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+        o.SerializerSettings.ContractResolver = new DefaultContractResolver(); // Explicitly use default resolver
         // Using the default settings, which serialize to camelCase JSON.
     });
 

@@ -132,10 +132,9 @@ public class JwtService : IJwtService
     public async Task<RefreshTokenRecord?> GetTokenAsync(string deviceId, string refreshToken)
     {
         // Directly compare the refresh token as it's now stored in plain text
-        var record = await _context
-            .RefreshTokens.FirstOrDefaultAsync(t =>
-                t.DeviceId == deviceId && !t.IsRevoked && t.EncryptedRefreshToken == refreshToken
-            );
+        var record = await _context.RefreshTokens.FirstOrDefaultAsync(t =>
+            t.DeviceId == deviceId && !t.IsRevoked && t.EncryptedRefreshToken == refreshToken
+        );
 
         return record;
     }
@@ -170,10 +169,9 @@ public class JwtService : IJwtService
         // );
 
         // 1. Pull eligible, NON-REVOKED records from the database.
-        var record = await _context
-            .RefreshTokens.FirstOrDefaultAsync(r =>
-                r.DeviceId == deviceId && !r.IsRevoked && r.EncryptedRefreshToken == refreshToken
-            );
+        var record = await _context.RefreshTokens.FirstOrDefaultAsync(r =>
+            r.DeviceId == deviceId && !r.IsRevoked && r.EncryptedRefreshToken == refreshToken
+        );
 
         // 3. If no matching token is found, or if it has expired, it's invalid.
         if (record == null || record.ExpiresAt < DateTime.UtcNow)
@@ -185,7 +183,9 @@ public class JwtService : IJwtService
         }
 
         Console.WriteLine($"[JwtService] Found matching refresh token record. Id: {record.Id}");
-        Console.WriteLine($"[JwtService] Refresh Token from DB: {record.EncryptedRefreshToken}, Client Token: {refreshToken}");
+        Console.WriteLine(
+            $"[JwtService] Refresh Token from DB: {record.EncryptedRefreshToken}, Client Token: {refreshToken}"
+        );
 
         var validation = ValidateSignedToken(token);
 

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SharedLibrary.Common;
 
 namespace SharedLibrary.Models
 {
@@ -49,5 +50,9 @@ namespace SharedLibrary.Models
         // Audit & Notes
         public bool? FlaggedForReview { get; set; }
         public required string AdminNotes { get; set; }
+
+        public Position? LastKnownPosition { get; set; }
+        public DateTime? LastSpawnAttempt { get; set; }
+        public float? CurrentSpawnRadius { get; set; }
     }
 }

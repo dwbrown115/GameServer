@@ -43,6 +43,9 @@ namespace GameServer.Migrations.GameDb
                     b.Property<int?>("ClientObjCount")
                         .HasColumnType("int");
 
+                    b.Property<float?>("CurrentSpawnRadius")
+                        .HasColumnType("real");
+
                     b.Property<DateTime?>("DeletionDate")
                         .HasColumnType("datetime2");
 
@@ -66,6 +69,9 @@ namespace GameServer.Migrations.GameDb
 
                     b.Property<bool?>("HashMismatch")
                         .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastSpawnAttempt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ObjectLifecycleLog")
                         .IsRequired()
@@ -195,6 +201,32 @@ namespace GameServer.Migrations.GameDb
                     b.HasKey("Id");
 
                     b.ToTable("Users", "users");
+                });
+
+            modelBuilder.Entity("SharedLibrary.Models.PlayerSessionLog", b =>
+                {
+                    b.OwnsOne("SharedLibrary.Common.Position", "LastKnownPosition", b1 =>
+                        {
+                            b1.Property<int>("PlayerSessionLogId")
+                                .HasColumnType("int");
+
+                            b1.Property<float>("X")
+                                .HasColumnType("real")
+                                .HasAnnotation("Relational:JsonPropertyName", "X");
+
+                            b1.Property<float>("Y")
+                                .HasColumnType("real")
+                                .HasAnnotation("Relational:JsonPropertyName", "Y");
+
+                            b1.HasKey("PlayerSessionLogId");
+
+                            b1.ToTable("PlayerSessionLog", "gameplay");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PlayerSessionLogId");
+                        });
+
+                    b.Navigation("LastKnownPosition");
                 });
 #pragma warning restore 612, 618
         }

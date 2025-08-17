@@ -9,3 +9,6 @@ Improvements.txt
 GameServer/server.crt
 GameServer/server.key
 GameServer/server.pfx
+
+# Ignore EF Core Migrations folder
+GameServer/Migrations/
