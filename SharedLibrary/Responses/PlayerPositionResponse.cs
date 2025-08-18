@@ -5,6 +5,6 @@ namespace SharedLibrary.Responses
     {
         public float X { get; set; }
         public float Y { get; set; }
-        public string Status { get; set; }
+        public required string Status { get; set; }
     }
 }

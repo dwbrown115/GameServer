@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Net.WebSockets;
 using System.Text;
 using GameServer.Models;
@@ -6,6 +7,7 @@ using GameServer.Utilities;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SharedLibrary.Models;
 using SharedLibrary.Pings;
 using SharedLibrary.Requests;
 using SharedLibrary.Responses;
@@ -135,15 +137,23 @@ public class WebSocketHandler : IWebSocketHandler
                         }
                         else
                         {
-                            _logger.LogInformation("Attempting to deserialize as SpawnItemRequest. Raw message: {Message}", messageString);
+                            _logger.LogInformation(
+                                "Attempting to deserialize as SpawnItemRequest. Raw message: {Message}",
+                                messageString
+                            );
                             // Attempt to deserialize as SpawnItemRequest
                             var spawnRequest = JsonConvert.DeserializeObject<SpawnItemRequest>(
                                 messageString
                             );
-                            _logger.LogInformation("SpawnItemRequest deserialization result: {IsNull}", spawnRequest == null ? "null" : "not null");
+                            _logger.LogInformation(
+                                "SpawnItemRequest deserialization result: {IsNull}",
+                                spawnRequest == null ? "null" : "not null"
+                            );
 
                             if (spawnRequest != null)
                             {
+                                sessionLog.SpawnRequests = (sessionLog.SpawnRequests ?? 0) + 1;
+
                                 // Manually deserialize PlayerPosition
                                 JObject json = JObject.Parse(messageString);
                                 JToken playerPositionToken = json["player_position"];
@@ -153,8 +163,8 @@ public class WebSocketHandler : IWebSocketHandler
                                         playerPositionToken.ToObject<SharedLibrary.Common.Position>();
                                     _logger.LogInformation(
                                         "Manually deserialized PlayerPosition: X={X}, Y={Y}",
-                                        spawnRequest.PlayerPosition.X,
-                                        spawnRequest.PlayerPosition.Y
+                                        spawnRequest.PlayerPosition?.X ?? 0.0f,
+                                        spawnRequest.PlayerPosition?.Y ?? 0.0f
                                     );
                                 }
 
@@ -186,6 +196,7 @@ public class WebSocketHandler : IWebSocketHandler
                                     _logger.LogInformation(
                                         "Spawn response sent (denied due to null PlayerPosition)."
                                     );
+                                    await dbContext.SaveChangesAsync(); // Save changes before returning
                                     return; // Exit early
                                 }
 
@@ -238,6 +249,8 @@ public class WebSocketHandler : IWebSocketHandler
 
                                 if (granted)
                                 {
+                                    sessionLog.ValidatedSpawns =
+                                        (sessionLog.ValidatedSpawns ?? 0) + 1;
                                     _logger.LogInformation(
                                         "Generating unique ID and spawn position."
                                     );
@@ -245,12 +258,38 @@ public class WebSocketHandler : IWebSocketHandler
                                     var uniqueId = NumberGeneratorUtility.GenerateValidNumber(10); // Example length
                                     var spawnPosition =
                                         SpawnPositionUtility.GenerateRandomPositionInCircle(
-                                            spawnRequest.PlayerPosition,
+                                            spawnRequest.PlayerPosition!,
                                             spawnRequest.SpawnRadius,
                                             _settings.NoSpawnRadius ?? 1.0f
                                         );
                                     spawnResponse.UniqueId = uniqueId;
                                     spawnResponse.SpawnPosition = spawnPosition; // Corrected line
+
+                                    // Log the object lifecycle event
+                                    var objectLifecycleLog = new ObjectLifecycleLog
+                                    {
+                                        Id = uniqueId,
+                                        ClientSpawnedTime = spawnRequest.SpawnAttemptTimestamp,
+                                        ServerSpawnedTime = DateTime.UtcNow,
+                                        ClaimedTime = null,
+                                        Coordinates = spawnPosition,
+                                    };
+
+                                    var lifecycleLogs = !string.IsNullOrEmpty(
+                                        sessionLog.ObjectLifecycleLog
+                                    )
+                                        ? JsonConvert.DeserializeObject<List<ObjectLifecycleLog>>(
+                                            sessionLog.ObjectLifecycleLog
+                                        )
+                                        : new List<ObjectLifecycleLog>();
+
+                                    if (lifecycleLogs != null)
+                                    {
+                                        lifecycleLogs.Add(objectLifecycleLog);
+                                        sessionLog.ObjectLifecycleLog = JsonConvert.SerializeObject(
+                                            lifecycleLogs
+                                        );
+                                    }
 
                                     _logger.LogInformation(
                                         "Updating session log with spawn details."
@@ -258,8 +297,6 @@ public class WebSocketHandler : IWebSocketHandler
                                     // Update session log with current spawn attempt details using server's current time
                                     sessionLog.LastSpawnAttempt = DateTime.UtcNow;
                                     sessionLog.CurrentSpawnRadius = spawnRequest.SpawnRadius;
-                                    await dbContext.SaveChangesAsync();
-                                    _logger.LogInformation("Session log updated successfully.");
                                 }
                                 else
                                 {
@@ -285,6 +322,7 @@ public class WebSocketHandler : IWebSocketHandler
                                     CancellationToken.None
                                 );
                                 _logger.LogInformation("Spawn response sent.");
+                                await dbContext.SaveChangesAsync();
                             }
                             else
                             {

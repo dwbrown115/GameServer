@@ -7,10 +7,10 @@ namespace SharedLibrary.Requests
     public class SpawnItemRequest
     {
         [JsonPropertyName("session_id")]
-        public string SessionId { get; set; }
+        public required string SessionId { get; set; }
 
         [JsonPropertyName("player_position")]
-        public Position PlayerPosition { get; set; }
+        public required Position PlayerPosition { get; set; }
 
         [JsonPropertyName("spawn_attempt_timestamp")]
         public DateTime SpawnAttemptTimestamp { get; set; }

@@ -12,7 +12,7 @@ namespace SharedLibrary.Responses
         public string? UniqueId { get; set; }
 
         [JsonPropertyName("session_id")]
-        public string SessionId { get; set; }
+        public required string SessionId { get; set; }
 
         [JsonPropertyName("granted")]
         public bool Granted { get; set; }

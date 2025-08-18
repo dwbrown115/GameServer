@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Tables Export</title>
+    <link rel="stylesheet" href="css/site.css" asp-append-version="true"/>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .sql-export-container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        h1, h2 { text-align: center; }
+        label, input, button, select { display: block; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+        input[type="submit"], button { background-color: #007bff; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 4px; }
+        input[type="submit"]:hover, button:hover { background-color: #0056b3; }
+        #message { margin-top: 10px; padding: 10px; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        /* New styles for table display */
+        #data-display-container { /* New container for the table data */
+            max-width: 2000px; /* Increased max-width for data display */
+            margin-top: 40px; /* More separation from the export section */
+            padding: 20px;
+            border: 1px solid var(--border-color); /* Use CSS variable for border */
+            border-radius: 8px;
+            width: 100%; /* Stretch to fit screen */
+            box-sizing: border-box; /* Include padding and border in the element's total width and height */
+        }
+        #data-display-container h2 {
+            text-align: left; /* Align heading to left within its container */
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        #table-data-display {
+            overflow-x: auto; /* Enable horizontal scrolling for wide tables */
+        }
+        #table-data-display table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: auto; /* Allow columns to size based on content */
+        }
+        #table-data-display th, #table-data-display td {
+            border: 1px solid var(--border-color); /* Use CSS variable for border */
+            padding: 8px;
+            text-align: left;
+            white-space: nowrap; /* Prevent text wrapping in cells */
+        }
+        #table-data-display th {
+            background-color: var(--secondary-bg-color); /* Use CSS variable for background */
+            color: var(--text-color); /* Use CSS variable for text color */
+        }
+        /* Dark mode adjustments for table - these are now handled by CSS variables */
+
+        /* Modal Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: var(--primary-bg-color);
+            margin: auto;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            width: 80%; /* Could be responsive */
+            max-width: 800px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+            color: var(--text-color);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            text-align: left; /* Override center alignment for h2 */
+            color: var(--text-color);
+        }
+
+        .close-button {
+            color: var(--text-color);
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: #000; /* Darker on hover */
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .modal-body pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 0.9em;
+            background-color: var(--secondary-bg-color);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="sql-export-container">
+        <div class="form-check form-switch ms-auto" style="margin-bottom: 20px;">
+            <input class="form-check-input" type="checkbox" id="darkModeToggle">
+            <label class="form-check-label" for="darkModeToggle">Dark Mode</label>
+        </div>
+        <h1>SQL Tables Export</h1>
+
+        <div id="debug-section">
+            <h2>Excel Export</h2>
+            <label for="table-select">Select Table:</label>
+            <select id="table-select"></select>
+            <button id="export-button">Export to Excel</button>
+            <button id="display-button">Display Table Data</button> <!-- New button -->
+            <div id="export-message" class="message"></div>
+        </div>
+    </div>
+
+    <!-- New section for displaying table data -->
+    <div id="data-display-container">
+        <h2>Table Data Display</h2>
+        <div id="table-data-display"></div>
+    </div>
+
+    <!-- JSON Modal Structure -->
+    <div id="jsonModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>JSON Data</h2>
+                <span class="close-button">&times;</span>
+            </div>
+            <div class="modal-body">
+                <pre id="modalJsonContent"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/site.js" asp-append-version="true"></script>
+    <script>
+        const tableSelect = document.getElementById('table-select');
+        const exportButton = document.getElementById('export-button');
+        const displayButton = document.getElementById('display-button'); // New element
+        const exportMessage = document.getElementById('export-message');
+        const tableDataDisplay = document.getElementById('table-data-display'); // New element
+
+        const API_BASE_URL = window.location.origin; // Assumes API is on the same origin
+
+        let jwtToken = localStorage.getItem('jwtToken');
+
+        // Function to display messages
+        function showMessage(element, message, type) {
+            element.textContent = message;
+            element.className = 'message ' + type;
+        }
+
+        // Populate table dropdown
+        function populateTableSelect(tables) {
+            tableSelect.innerHTML = ''; // Clear existing options
+            tables.forEach(table => {
+                const option = document.createElement('option');
+                option.value = table;
+                option.textContent = table;
+                tableSelect.appendChild(option);
+            });
+        }
+
+        // Function to check if token exists and is potentially valid
+        async function checkAuthAndLoadTables() {
+            if (!jwtToken) {
+                window.location.href = 'debug.html'; // Redirect to login if no token
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Debug/tables`, {
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const tables = await response.json();
+                    populateTableSelect(tables);
+                } else if (response.status === 401) {
+                    window.location.href = 'debug.html'; // Redirect to login if unauthorized
+                } else {
+                    showMessage(exportMessage, `Error loading tables: ${response.statusText}`, 'error');
+                }
+            }
+            catch (error) {
+                console.error('Error checking authentication or loading tables:', error);
+                showMessage(exportMessage, 'Could not connect to server or load tables.', 'error');
+                window.location.href = 'debug.html'; // Redirect on network error
+            }
+        }
+
+        // Helper function to check if a string is valid JSON
+        function isJson(str) {
+            try {
+                const parsed = JSON.parse(str);
+                // Check if the parsed result is an object or array, not a primitive
+                return (typeof parsed === 'object' && parsed !== null) || Array.isArray(parsed);
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // Function to display table data
+        async function displayTableData() {
+            const selectedTable = tableSelect.value;
+            if (!selectedTable) {
+                showMessage(exportMessage, 'Please select a table to display.', 'error');
+                return;
+            }
+
+            tableDataDisplay.innerHTML = 'Loading data...';
+            showMessage(exportMessage, '', ''); // Clear previous messages
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Debug/table-data/${selectedTable}`, {
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.length === 0) {
+                        tableDataDisplay.innerHTML = '<p>No data found for this table.</p>';
+                        return;
+                    }
+
+                    // Create table element
+                    const table = document.createElement('table');
+                    const thead = document.createElement('thead');
+                    const tbody = document.createElement('tbody');
+
+                    // Create header row
+                    const headerRow = document.createElement('tr');
+                    // Assuming all objects in the array have the same keys
+                    Object.keys(data[0]).forEach(key => {
+                        const th = document.createElement('th');
+                        th.textContent = key;
+                        headerRow.appendChild(th);
+                    });
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+
+                    // Create data rows
+                    data.forEach(rowObject => {
+                        const tr = document.createElement('tr');
+                        Object.values(rowObject).forEach(value => {
+                            const td = document.createElement('td');
+
+                            if (isJson(value)) {
+                                const parsedJson = JSON.parse(value);
+                                const prettyJson = JSON.stringify(parsedJson, null, 2);
+
+                                const viewJsonButton = document.createElement('button');
+                                viewJsonButton.textContent = 'View JSON';
+                                viewJsonButton.style.cssText = 'background-color: #007bff; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; width: auto;';
+                                td.appendChild(viewJsonButton);
+
+                                viewJsonButton.addEventListener('click', () => {
+                                    const modal = document.getElementById('jsonModal');
+                                    const modalContent = document.getElementById('modalJsonContent');
+                                    modalContent.textContent = prettyJson;
+                                    modal.style.display = 'flex'; // Use flex to center the modal
+                                });
+
+                            } else {
+                                td.textContent = value;
+                            }
+                            tr.appendChild(td);
+                        });
+                        tbody.appendChild(tr);
+                    });
+                    table.appendChild(tbody);
+
+                    tableDataDisplay.innerHTML = ''; // Clear loading message
+                    tableDataDisplay.appendChild(table);
+                } else if (response.status === 401) {
+                    showMessage(exportMessage, 'Unauthorized to view table data. Please log in again.', 'error');
+                    window.location.href = 'debug.html';
+                } else {
+                    const errorText = await response.text();
+                    showMessage(exportMessage, `Error displaying data: ${response.statusText} - ${errorText}`, 'error');
+                }
+            }
+            catch (error) {
+                console.error('Display data error:', error);
+                showMessage(exportMessage, 'An error occurred while fetching table data.', 'error');
+            }
+        }
+
+        // Modal control logic
+        const jsonModal = document.getElementById('jsonModal');
+        const closeButton = jsonModal.querySelector('.close-button');
+
+        closeButton.addEventListener('click', () => {
+            jsonModal.style.display = 'none';
+        });
+
+        // Close modal when clicking outside of the modal-content
+        jsonModal.addEventListener('click', (event) => {
+            if (event.target === jsonModal) {
+                jsonModal.style.display = 'none';
+            }
+        });
+
+        // Export button click
+        exportButton.addEventListener('click', async () => {
+            const selectedTable = tableSelect.value;
+            if (!selectedTable) {
+                showMessage(exportMessage, 'Please select a table.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Debug/export-excel`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${jwtToken}`
+                    },
+                    body: JSON.stringify(selectedTable) // Send table name as plain string in body
+                });
+
+                if (response.ok) {
+                    // Get filename from Content-Disposition header
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = 'export.xlsx';
+                    if (contentDisposition && contentDisposition.indexOf('attachment') !== -1) {
+                        const filenameRegex = /filename[^;=\n]*=((['"]).*?\u0002|[^;\n]*)/;
+                        const matches = filenameRegex.exec(contentDisposition);
+                        if (matches != null && matches[1]) {
+                            filename = matches[1].replace(/['"]/g, '');
+                        }
+                    }
+
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    showMessage(exportMessage, 'Export successful! File downloaded.', 'success');
+                } else {
+                    const errorText = await response.text();
+                    showMessage(exportMessage, `Export failed: ${errorText || response.statusText}`, 'error');
+                }
+            }
+            catch (error) {
+                console.error('Export error:', error);
+                showMessage(exportMessage, 'An error occurred during export.', 'error');
+            }
+        });
+
+        // Display button click
+        displayButton.addEventListener('click', displayTableData);
+
+        // Initial check on page load and load tables
+        document.addEventListener('DOMContentLoaded', checkAuthAndLoadTables);
+    </script>
+</body>
+</html>

@@ -22,6 +22,35 @@ namespace GameServer.Migrations.GameDb
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("SharedLibrary.Models.ObjectLifecycleLog", b =>
+                {
+                    b.Property<int>("LogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("LogId"));
+
+                    b.Property<DateTime?>("ClaimedTime")
+                        .HasColumnType("datetime2")
+                        .HasAnnotation("Relational:JsonPropertyName", "claimedTime");
+
+                    b.Property<DateTime?>("ClientSpawnedTime")
+                        .HasColumnType("datetime2")
+                        .HasAnnotation("Relational:JsonPropertyName", "clientSpawnedTime");
+
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(max)")
+                        .HasAnnotation("Relational:JsonPropertyName", "id");
+
+                    b.Property<DateTime>("ServerSpawnedTime")
+                        .HasColumnType("datetime2")
+                        .HasAnnotation("Relational:JsonPropertyName", "serverSpawnedTime");
+
+                    b.HasKey("LogId");
+
+                    b.ToTable("ObjectLifecycleLogs");
+                });
+
             modelBuilder.Entity("SharedLibrary.Models.PlayerSessionLog", b =>
                 {
                     b.Property<int>("Id")
@@ -201,6 +230,35 @@ namespace GameServer.Migrations.GameDb
                     b.HasKey("Id");
 
                     b.ToTable("Users", "users");
+                });
+
+            modelBuilder.Entity("SharedLibrary.Models.ObjectLifecycleLog", b =>
+                {
+                    b.OwnsOne("SharedLibrary.Common.Position", "Coordinates", b1 =>
+                        {
+                            b1.Property<int>("ObjectLifecycleLogLogId")
+                                .HasColumnType("int");
+
+                            b1.Property<float>("X")
+                                .HasColumnType("real")
+                                .HasAnnotation("Relational:JsonPropertyName", "X");
+
+                            b1.Property<float>("Y")
+                                .HasColumnType("real")
+                                .HasAnnotation("Relational:JsonPropertyName", "Y");
+
+                            b1.HasKey("ObjectLifecycleLogLogId");
+
+                            b1.ToTable("ObjectLifecycleLogs");
+
+                            b1.HasAnnotation("Relational:JsonPropertyName", "coordinates");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ObjectLifecycleLogLogId");
+                        });
+
+                    b.Navigation("Coordinates")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SharedLibrary.Models.PlayerSessionLog", b =>

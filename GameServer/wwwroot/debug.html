@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Console</title>
+    <link rel="stylesheet" href="css/site.css" asp-append-version="true"/>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        h1, h2 { text-align: center; }
+        label, input, button, select { display: block; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+        input[type="submit"], button { background-color: #007bff; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 4px; }
+        input[type="submit"]:hover, button:hover { background-color: #0056b3; }
+        #message { margin-top: 10px; padding: 10px; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-check form-switch ms-auto" style="margin-bottom: 20px;">
+            <input class="form-check-input" type="checkbox" id="darkModeToggle">
+            <label class="form-check-label" for="darkModeToggle">Dark Mode</label>
+        </div>
+        <h1>Debug Console</h1>
+
+        <div id="login-section">
+            <h2>Login</h2>
+            <form id="login-form">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required>
+
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+
+                <button type="submit">Login</button>
+            </form>
+            <div id="login-message" class="message"></div>
+        </div>
+    </div>
+
+    <script src="js/site.js" asp-append-version="true"></script>
+    <script>
+        const loginForm = document.getElementById('login-form');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const loginMessage = document.getElementById('login-message');
+        const loginSection = document.getElementById('login-section');
+
+        const API_BASE_URL = window.location.origin; // Assumes API is on the same origin
+
+        // Function to display messages
+        function showMessage(element, message, type) {
+            element.textContent = message;
+            element.className = 'message ' + type;
+        }
+
+        // Login form submission
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = usernameInput.value;
+            const password = passwordInput.value;
+            const deviceId = "debug-device"; // Hardcoded for debug mode
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/Authentication/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password, deviceId })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('jwtToken', data.Token); // Store JWT
+                    showMessage(loginMessage, 'Login successful! Redirecting...', 'success');
+                    window.location.href = 'sql_tables.html'; // Redirect to new page
+                } else {
+                    const errorData = await response.json();
+                    showMessage(loginMessage, `Login failed: ${errorData.message || response.statusText}`, 'error');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage(loginMessage, 'An error occurred during login.', 'error');
+            }
+        });
+
+        // Auto-fill for development mode
+        if (window.location.hostname === 'localhost') {
+            usernameInput.value = 'Dak';
+            passwordInput.value = 'password123';
+        }
+    </script>
+</body>
+</html>

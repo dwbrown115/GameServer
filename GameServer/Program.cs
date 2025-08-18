@@ -13,8 +13,11 @@ using SharedLibrary.Requests;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var settings = new Settings();
-builder.Configuration.Bind("Settings", settings);
+var settings = builder.Configuration.GetSection("Settings").Get<Settings>();
+if (settings == null)
+{
+    throw new InvalidOperationException("Settings section is missing or invalid in configuration.");
+}
 builder.Services.AddSingleton(settings);
 
 // Add services to the container.
@@ -50,7 +53,7 @@ builder
         o.TokenValidationParameters = new TokenValidationParameters()
         {
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.ASCII.GetBytes(settings.BearerKey ?? "")
+                Encoding.ASCII.GetBytes(settings.JwtSecret)
             ),
             ValidateIssuerSigningKey = true,
             ValidateAudience = false,
@@ -75,9 +78,11 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment()) { }
 
+app.UseStaticFiles(); // Add this line
 app.UseHttpsRedirection();
 app.UseWebSockets();
 app.UseAuthentication();
+app.UseAuthorization();
 
 app.Map(
     "/ws",
