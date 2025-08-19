@@ -15,6 +15,9 @@ namespace SharedLibrary.Pings
         [JsonProperty("player_id")]
         public required string PlayerId { get; set; }
 
+        [JsonProperty("attempted_client_score")]
+        public int AttemptedClientScore { get; set; }
+
         [JsonProperty("current_position")]
         public required Position CurrentPosition { get; set; }
 

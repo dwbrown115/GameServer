@@ -6,6 +6,9 @@ namespace SharedLibrary.Requests
 {
     public class ObjectClaimedRequest
     {
+        [JsonProperty("session_id")]
+        public string? SessionId { get; set; }
+
         [JsonProperty("id")]
         public required string Id { get; set; }
 

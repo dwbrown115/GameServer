@@ -176,6 +176,14 @@
         // Populate table dropdown
         function populateTableSelect(tables) {
             tableSelect.innerHTML = ''; // Clear existing options
+
+            // Sort the tables array to bring 'gameplay.PlayerSessionLog' to the top
+            tables.sort((a, b) => {
+                if (a === 'gameplay.PlayerSessionLog') return -1;
+                if (b === 'gameplay.PlayerSessionLog') return 1;
+                return a.localeCompare(b); // Keep other tables in alphabetical order
+            });
+
             tables.forEach(table => {
                 const option = document.createElement('option');
                 option.value = table;

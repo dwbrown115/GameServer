@@ -19,7 +19,7 @@ public class ClaimObjectWebSocketRequest
     [JsonProperty("request_type")]
     public string RequestType { get; set; }
 
-    [JsonProperty("sessionId")]
+    [JsonProperty("session_id")]
     public string SessionId { get; set; }
 
     [JsonProperty("claimedObject")]
@@ -115,40 +115,46 @@ public class WebSocketHandler : IWebSocketHandler
                             case "player_ping":
                                 var playerPing = JsonConvert.DeserializeObject<PlayerPing>(messageString);
                                 _logger.LogInformation(
-                                    "Player {PlayerId} ping: SessionId={SessionId}, X={X}, Y={Y}, Radius={Radius}, LastSpawnAttempt={LastSpawnAttempt}",
+                                    "Player {PlayerId} ping: SessionId={SessionId}, X={X}, Y={Y}, Radius={Radius}, LastSpawnAttempt={LastSpawnAttempt}, AttemptedClientScore={AttemptedClientScore}",
                                     playerPing.PlayerId,
                                     playerPing.SessionId,
                                     playerPing.CurrentPosition?.X ?? 0.0f,
                                     playerPing.CurrentPosition?.Y ?? 0.0f,
                                     playerPing.Radius,
-                                    playerPing.LastSpawnAttempt
+                                    playerPing.LastSpawnAttempt,
+                                    playerPing.AttemptedClientScore
                                 );
 
-                                // Update LastKnownPosition in PlayerSessionLog
-                                if (sessionLog != null && playerPing.CurrentPosition != null)
+                                if (sessionLog != null)
                                 {
                                     sessionLog.LastKnownPosition = playerPing.CurrentPosition;
+                                    sessionLog.AttemptedClientScore = playerPing.AttemptedClientScore;
                                     await dbContext.SaveChangesAsync();
-                                }
 
-                                // Send response
-                                var response = new PlayerPingResponse
-                                {
-                                    SessionId = sessionId,
-                                    Status = "Received by server at " + DateTime.UtcNow.ToString("o"),
-                                };
-                                var responseString = JsonConvert.SerializeObject(response);
-                                var responseBytes = Encoding.UTF8.GetBytes(responseString);
-                                await socket.SendAsync(
-                                    new ArraySegment<byte>(responseBytes),
-                                    WebSocketMessageType.Text,
-                                    true,
-                                    CancellationToken.None
-                                );
+                                    var status = sessionLog.ScoreServer == sessionLog.AttemptedClientScore ? "Ok" : "Bad";
+
+                                    var response = new PlayerPingResponse
+                                    {
+                                        SessionId = sessionId,
+                                        Status = status,
+                                        ServerScore = sessionLog.ScoreServer
+                                    };
+                                    var responseString = JsonConvert.SerializeObject(response);
+                                    _logger.LogInformation("Sending PlayerPingResponse: {response}", responseString);
+                                    var responseBytes = Encoding.UTF8.GetBytes(responseString);
+                                    await socket.SendAsync(
+                                        new ArraySegment<byte>(responseBytes),
+                                        WebSocketMessageType.Text,
+                                        true,
+                                        CancellationToken.None
+                                    );
+                                }
                                 break;
 
                             case "spawn_item_request":
-                                var spawnRequest = JsonConvert.DeserializeObject<SpawnItemRequest>(messageString);
+                                var spawnRequest = JsonConvert.DeserializeObject<SpawnItemRequest>(
+                                    messageString
+                                );
                                 _logger.LogInformation(
                                     "SpawnItemRequest deserialization result: {IsNull}",
                                     spawnRequest == null ? "null" : "not null"
@@ -259,7 +265,9 @@ public class WebSocketHandler : IWebSocketHandler
                                             "Generating unique ID and spawn position."
                                         );
                                         // Generate unique ID and spawn position
-                                        var uniqueId = NumberGeneratorUtility.GenerateValidNumber(10); // Example length
+                                        var uniqueId = NumberGeneratorUtility.GenerateValidNumber(
+                                            10
+                                        ); // Example length
                                         var spawnPosition =
                                             SpawnPositionUtility.GenerateRandomPositionInCircle(
                                                 spawnRequest.PlayerPosition!,
@@ -282,17 +290,16 @@ public class WebSocketHandler : IWebSocketHandler
                                         var lifecycleLogs = !string.IsNullOrEmpty(
                                             sessionLog.ObjectLifecycleLog
                                         )
-                                            ? JsonConvert.DeserializeObject<List<ObjectLifecycleLog>>(
-                                                sessionLog.ObjectLifecycleLog
-                                            )
+                                            ? JsonConvert.DeserializeObject<
+                                                List<ObjectLifecycleLog>
+                                            >(sessionLog.ObjectLifecycleLog)
                                             : new List<ObjectLifecycleLog>();
 
                                         if (lifecycleLogs != null)
                                         {
                                             lifecycleLogs.Add(objectLifecycleLog);
-                                            sessionLog.ObjectLifecycleLog = JsonConvert.SerializeObject(
-                                                lifecycleLogs
-                                            );
+                                            sessionLog.ObjectLifecycleLog =
+                                                JsonConvert.SerializeObject(lifecycleLogs);
                                         }
 
                                         _logger.LogInformation(
@@ -331,8 +338,14 @@ public class WebSocketHandler : IWebSocketHandler
                                 break;
 
                             case "object_claimed_request":
-                                var claimObjectRequest = JsonConvert.DeserializeObject<ClaimObjectWebSocketRequest>(messageString);
-                                if (claimObjectRequest != null && claimObjectRequest.ClaimedObject != null)
+                                var claimObjectRequest =
+                                    JsonConvert.DeserializeObject<ClaimObjectWebSocketRequest>(
+                                        messageString
+                                    );
+                                if (
+                                    claimObjectRequest != null
+                                    && claimObjectRequest.ClaimedObject != null
+                                )
                                 {
                                     var objectClaimedRequest = claimObjectRequest.ClaimedObject;
                                     _logger.LogInformation(
@@ -343,6 +356,105 @@ public class WebSocketHandler : IWebSocketHandler
                                         objectClaimedRequest.Coordinates?.X ?? 0.0f,
                                         objectClaimedRequest.Coordinates?.Y ?? 0.0f
                                     );
+
+                                    var sessionLogForClaim =
+                                        await dbContext.PlayerSessionLogs.FirstOrDefaultAsync(s =>
+                                            s.SessionId == claimObjectRequest.SessionId
+                                            && s.SessionEnd == null
+                                        );
+
+                                    if (sessionLogForClaim != null)
+                                    {
+                                        var lifecycleLogs = !string.IsNullOrEmpty(
+                                            sessionLogForClaim.ObjectLifecycleLog
+                                        )
+                                            ? JsonConvert.DeserializeObject<
+                                                List<ObjectLifecycleLog>
+                                            >(sessionLogForClaim.ObjectLifecycleLog)
+                                            : new List<ObjectLifecycleLog>();
+
+                                        var objectLog = lifecycleLogs?.FirstOrDefault(o =>
+                                            o.Id == objectClaimedRequest.Id
+                                        );
+
+                                        if (objectLog != null)
+                                        {
+                                            if (objectLog.ClaimedTime == null)
+                                            {
+                                                objectLog.ClaimedTime =
+                                                    objectClaimedRequest.ClaimedTime;
+                                                objectLog.ClientSpawnedTime =
+                                                    objectClaimedRequest.ClientSpawnedTime;
+
+                                                sessionLogForClaim.ScoreServer++; // Increment score
+
+                                                sessionLogForClaim.ObjectLifecycleLog =
+                                                    JsonConvert.SerializeObject(lifecycleLogs);
+                                                await dbContext.SaveChangesAsync();
+
+                                                var okResponse = new ObjectClaimedResponse
+                                                {
+                                                    SessionId = claimObjectRequest.SessionId,
+                                                    Status = "Ok",
+                                                };
+                                                var okResponseString = JsonConvert.SerializeObject(
+                                                    okResponse
+                                                );
+                                                _logger.LogInformation(
+                                                    "Sending ObjectClaimedResponse: {response}",
+                                                    okResponseString
+                                                );
+                                                var okResponseBytes = Encoding.UTF8.GetBytes(
+                                                    okResponseString
+                                                );
+                                                await socket.SendAsync(
+                                                    new ArraySegment<byte>(okResponseBytes),
+                                                    WebSocketMessageType.Text,
+                                                    true,
+                                                    CancellationToken.None
+                                                );
+                                            }
+                                            else
+                                            {
+                                                var badResponse = new ObjectClaimedResponse
+                                                {
+                                                    SessionId = claimObjectRequest.SessionId,
+                                                    Status = "Bad",
+                                                };
+                                                var badResponseString = JsonConvert.SerializeObject(
+                                                    badResponse
+                                                );
+                                                _logger.LogInformation(
+                                                    "Sending ObjectClaimedResponse: {response}",
+                                                    badResponseString
+                                                );
+                                                var badResponseBytes = Encoding.UTF8.GetBytes(
+                                                    badResponseString
+                                                );
+                                                await socket.SendAsync(
+                                                    new ArraySegment<byte>(badResponseBytes),
+                                                    WebSocketMessageType.Text,
+                                                    true,
+                                                    CancellationToken.None
+                                                );
+                                            }
+                                        }
+                                        else
+                                        {
+                                            _logger.LogWarning(
+                                                "Object with id {objectid} not found in session {sessionid}",
+                                                objectClaimedRequest.Id,
+                                                claimObjectRequest.SessionId
+                                            );
+                                        }
+                                    }
+                                    else
+                                    {
+                                        _logger.LogWarning(
+                                            "Session with id {sessionid} not found",
+                                            claimObjectRequest.SessionId
+                                        );
+                                    }
                                 }
                                 break;
 
