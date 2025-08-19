@@ -28,7 +28,11 @@ namespace GameServer.Controllers
             {
                 var tableNames = _context
                     .Model.GetEntityTypes()
-                    .Select(t => t.GetSchema() != null ? $"{t.GetSchema()}.{t.GetTableName()}" : t.GetTableName())
+                    .Select(t =>
+                        t.GetSchema() != null
+                            ? $"{t.GetSchema()}.{t.GetTableName()}"
+                            : t.GetTableName()
+                    )
                     .Where(name => name != null)
                     .Distinct()
                     .ToList();
@@ -60,7 +64,11 @@ namespace GameServer.Controllers
                 var entityType = _context
                     .Model.GetEntityTypes()
                     .FirstOrDefault(e =>
-                        (e.GetSchema() != null ? $"{e.GetSchema()}.{e.GetTableName()}" : e.GetTableName()) == tableName
+                        (
+                            e.GetSchema() != null
+                                ? $"{e.GetSchema()}.{e.GetTableName()}"
+                                : e.GetTableName()
+                        ) == tableName
                     );
 
                 if (entityType == null)
@@ -122,8 +130,12 @@ namespace GameServer.Controllers
                 // This part needs to be updated to handle schema-qualified names
                 var entityType = _context
                     .Model.GetEntityTypes()
-                    .FirstOrDefault(e => 
-                        (e.GetSchema() != null ? $"{e.GetSchema()}.{e.GetTableName()}" : e.GetTableName()) == tableName
+                    .FirstOrDefault(e =>
+                        (
+                            e.GetSchema() != null
+                                ? $"{e.GetSchema()}.{e.GetTableName()}"
+                                : e.GetTableName()
+                        ) == tableName
                     );
 
                 if (entityType == null)

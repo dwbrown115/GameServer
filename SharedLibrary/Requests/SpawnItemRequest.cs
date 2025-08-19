@@ -1,21 +1,24 @@
 using System;
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 using SharedLibrary.Common;
 
 namespace SharedLibrary.Requests
 {
     public class SpawnItemRequest
     {
-        [JsonPropertyName("session_id")]
+        [JsonProperty("request_type")]
+        public string RequestType { get; set; } = "spawn_item_request";
+
+        [JsonProperty("session_id")]
         public required string SessionId { get; set; }
 
-        [JsonPropertyName("player_position")]
+        [JsonProperty("player_position")]
         public required Position PlayerPosition { get; set; }
 
-        [JsonPropertyName("spawn_attempt_timestamp")]
+        [JsonProperty("spawn_attempt_timestamp")]
         public DateTime SpawnAttemptTimestamp { get; set; }
 
-        [JsonPropertyName("spawn_radius")]
+        [JsonProperty("spawn_radius")]
         public float SpawnRadius { get; set; }
     }
 }

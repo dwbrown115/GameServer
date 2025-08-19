@@ -1,20 +1,23 @@
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 using SharedLibrary.Common;
 
 namespace SharedLibrary.Responses
 {
     public class SpawnRequestResponse
     {
-        [JsonPropertyName("spawn_position")]
+        [JsonProperty("response_type")]
+        public string ResponseType { get; set; } = "spawn_request_response";
+
+        [JsonProperty("spawn_position")]
         public SharedLibrary.Common.Position? SpawnPosition { get; set; }
 
-        [JsonPropertyName("unique_id")]
+        [JsonProperty("unique_id")]
         public string? UniqueId { get; set; }
 
-        [JsonPropertyName("session_id")]
+        [JsonProperty("session_id")]
         public required string SessionId { get; set; }
 
-        [JsonPropertyName("granted")]
+        [JsonProperty("granted")]
         public bool Granted { get; set; }
     }
 }

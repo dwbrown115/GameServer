@@ -8,6 +8,10 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    </ItemGroup>
+
 <!--    <Target Name="CopySharedLibraryWindows" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('Windows'))">-->
 <!--        <MakeDir Directories="C:\Users\DakotaBrown\Documents\Unity\GameServerTestGame\Assets\DLLs"/>-->
 <!--        <Copy SourceFiles="$(TargetPath)" DestinationFiles="C:\Users\DakotaBrown\Documents\Unity\GameServerTestGame\Assets\DLLs\SharedLibrary.dll"/>-->

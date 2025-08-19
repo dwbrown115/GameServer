@@ -1,13 +1,16 @@
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace SharedLibrary.Responses
 {
     public class PlayerPingResponse
     {
-        // [JsonPropertyName("session_id")]
+        [JsonProperty("response_type")]
+        public string ResponseType { get; set; } = "player_ping_response";
+
+        [JsonProperty("session_id")]
         public required string SessionId { get; set; }
 
-        // [JsonPropertyName("status")]
+        [JsonProperty("status")]
         public required string Status { get; set; }
     }
 }

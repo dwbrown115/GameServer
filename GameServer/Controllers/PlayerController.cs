@@ -46,7 +46,10 @@ public class PlayerController : ControllerBase
         if (!changeResponse.Success)
         {
             // Distinguish between an authentication failure and a data validation failure.
-            if (changeResponse.Message.Contains("session") || changeResponse.Message.Contains("token"))
+            if (
+                changeResponse.Message.Contains("session")
+                || changeResponse.Message.Contains("token")
+            )
             {
                 return Unauthorized(new { message = changeResponse.Message });
             }
@@ -56,5 +59,20 @@ public class PlayerController : ControllerBase
         }
 
         return Ok(changeResponse);
+    }
+
+    [HttpPost("object-claimed")]
+    [ProducesResponseType(200)]
+    public IActionResult ObjectClaimed([FromBody] ObjectClaimedRequest request)
+    {
+        // Log the object claimed request
+        Console.WriteLine(
+            $"[PlayerController] Received object claimed request: {JsonConvert.SerializeObject(request, Formatting.Indented)}"
+        );
+
+        // Here you would add the logic to handle the claimed object,
+        // for example, saving it to a database or updating game state.
+
+        return Ok();
     }
 }
