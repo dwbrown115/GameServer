@@ -129,6 +129,20 @@ public class WebSocketHandler : IWebSocketHandler
                                 {
                                     sessionLog.LastKnownPosition = playerPing.CurrentPosition;
                                     sessionLog.AttemptedClientScore = playerPing.AttemptedClientScore;
+
+                                    var positionLogList = !string.IsNullOrEmpty(sessionLog.PlayerPositionLog) ?
+                                        JsonConvert.DeserializeObject<List<PlayerPositionLogEntry>>(sessionLog.PlayerPositionLog) :
+                                        new List<PlayerPositionLogEntry>();
+
+                                    positionLogList.Add(new PlayerPositionLogEntry
+                                    {
+                                        X = playerPing.CurrentPosition?.X ?? 0.0f,
+                                        Y = playerPing.CurrentPosition?.Y ?? 0.0f,
+                                        PlayerId = sessionLog.PlayerId,
+                                        Timestamp = DateTime.UtcNow
+                                    });
+                                    sessionLog.PlayerPositionLog = JsonConvert.SerializeObject(positionLogList);
+
                                     await dbContext.SaveChangesAsync();
 
                                     var status = sessionLog.ScoreServer == sessionLog.AttemptedClientScore ? "Ok" : "Bad";
@@ -309,6 +323,19 @@ public class WebSocketHandler : IWebSocketHandler
                                         sessionLog.LastKnownPosition = spawnRequest.PlayerPosition;
                                         sessionLog.LastSpawnAttempt = DateTime.UtcNow;
                                         sessionLog.CurrentSpawnRadius = spawnRequest.SpawnRadius;
+
+                                        var positionLogList = !string.IsNullOrEmpty(sessionLog.PlayerPositionLog) ?
+                                            JsonConvert.DeserializeObject<List<PlayerPositionLogEntry>>(sessionLog.PlayerPositionLog) :
+                                            new List<PlayerPositionLogEntry>();
+
+                                        positionLogList.Add(new PlayerPositionLogEntry
+                                        {
+                                            X = spawnRequest.PlayerPosition?.X ?? 0.0f,
+                                            Y = spawnRequest.PlayerPosition?.Y ?? 0.0f,
+                                            PlayerId = sessionLog.PlayerId,
+                                            Timestamp = DateTime.UtcNow
+                                        });
+                                        sessionLog.PlayerPositionLog = JsonConvert.SerializeObject(positionLogList);
                                     }
                                     else
                                     {
