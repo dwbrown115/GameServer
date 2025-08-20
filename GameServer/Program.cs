@@ -25,10 +25,7 @@ builder.Services.AddDbContext<GameDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("Db"))
 );
 
-// Migration-only context for database migrations
-builder.Services.AddDbContext<MigrationOnlyContext>(o =>
-    o.UseSqlServer(builder.Configuration.GetConnectionString("Db"))
-);
+
 
 builder
     .Services.AddControllers()

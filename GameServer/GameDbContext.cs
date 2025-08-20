@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using SharedLibrary.Models;
 using SharedLibrary.Common; // Changed from SharedLibrary.Pings
+using SharedLibrary.Models;
 
 namespace GameServer;
 

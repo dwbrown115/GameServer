@@ -388,6 +388,24 @@ public class WebSocketHandler : IWebSocketHandler
 
                                                 sessionLogForClaim.ScoreServer++; // Increment score
 
+                                                var scoreLogEntry = new ScoreLogEntry
+                                                {
+                                                    ServerScore = sessionLogForClaim.ScoreServer,
+                                                    ObjectId = objectClaimedRequest.Id,
+                                                    PlayerId = sessionLogForClaim.PlayerId,
+                                                    Timestamp = DateTime.UtcNow
+                                                };
+
+                                                var scoreLogs = !string.IsNullOrEmpty(sessionLogForClaim.ScoreLog)
+                                                    ? JsonConvert.DeserializeObject<List<ScoreLogEntry>>(sessionLogForClaim.ScoreLog)
+                                                    : new List<ScoreLogEntry>();
+                                                
+                                                if (scoreLogs != null)
+                                                {
+                                                    scoreLogs.Add(scoreLogEntry);
+                                                    sessionLogForClaim.ScoreLog = JsonConvert.SerializeObject(scoreLogs);
+                                                }
+
                                                 sessionLogForClaim.ObjectLifecycleLog =
                                                     JsonConvert.SerializeObject(lifecycleLogs);
                                                 await dbContext.SaveChangesAsync();

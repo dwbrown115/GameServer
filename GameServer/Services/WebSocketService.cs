@@ -62,6 +62,7 @@ public class WebSocketService : IWebSocketService
             SyncStatus = "Initialized",
             DesyncResolution = "None",
             ObjectLifecycleLog = "[]",
+            ScoreLog = "[]",
             SessionMetadata = "{}",
             Region = "Unknown",
             GameVersion = "Unknown",

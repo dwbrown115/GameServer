@@ -62,17 +62,17 @@ public class PlayerController : ControllerBase
     }
 
     [HttpPost("object-claimed")]
-    [ProducesResponseType(200)]
-    public IActionResult ObjectClaimed([FromBody] ObjectClaimedRequest request)
+    [ProducesResponseType(typeof(ObjectClaimedResponse), 200)]
+    [ProducesResponseType(typeof(ObjectClaimedResponse), 400)]
+    public async Task<IActionResult> ObjectClaimed([FromBody] ObjectClaimedRequest request)
     {
-        // Log the object claimed request
-        Console.WriteLine(
-            $"[PlayerController] Received object claimed request: {JsonConvert.SerializeObject(request, Formatting.Indented)}"
-        );
+        var response = await _playerService.ObjectClaimedAsync(request);
 
-        // Here you would add the logic to handle the claimed object,
-        // for example, saving it to a database or updating game state.
+        if (response.Status != "Ok")
+        {
+            return BadRequest(response);
+        }
 
-        return Ok();
+        return Ok(response);
     }
 }

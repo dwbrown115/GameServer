@@ -28,6 +28,7 @@ namespace SharedLibrary.Models
 
         // Object Lifecycle Logging 🔍
         public required string ObjectLifecycleLog { get; set; } // JSON stored as string
+        public required string ScoreLog { get; set; } // JSON stored as string
 
         // Scoring & Validation
         public int ScoreServer { get; set; } = 0;
