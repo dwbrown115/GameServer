@@ -1,13 +1,13 @@
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace SharedLibrary.Common
 {
     public class Position
     {
-        [JsonPropertyName("X")]
+        [JsonProperty("X")]
         public float X { get; set; }
 
-        [JsonPropertyName("Y")]
+        [JsonProperty("Y")]
         public float Y { get; set; }
     }
 }

@@ -26,21 +26,24 @@ namespace GameServer.Controllers
         {
             try
             {
-                var tableNames = _context
-                    .Model.GetEntityTypes()
-                    .Select(t =>
-                        t.GetSchema() != null
-                            ? $"{t.GetSchema()}.{t.GetTableName()}"
-                            : t.GetTableName()
-                    )
-                    .Where(name => name != null)
-                    .Distinct()
-                    .ToList();
+                var tableNames = await Task.Run(() =>
+                {
+                    var names = _context
+                        .Model.GetEntityTypes()
+                        .Select(t =>
+                            t.GetSchema() != null
+                                ? $"{t.GetSchema()}.{t.GetTableName()}"
+                                : t.GetTableName()
+                        )
+                        .Where(name => name != null)
+                        .Distinct()
+                        .ToList();
 
-                // Filter out EF Core migration history table if present
-                tableNames = tableNames
-                    .Where(name => !name.Contains("__EFMigrationsHistory"))
-                    .ToList();
+                    // Filter out EF Core migration history table if present
+                    names = names.Where(name => !name.Contains("__EFMigrationsHistory")).ToList();
+
+                    return names;
+                });
 
                 return Ok(tableNames);
             }
@@ -195,6 +198,41 @@ namespace GameServer.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error exporting table '{tableName}' to Excel.");
+                return StatusCode(500, "Internal server error: " + ex.Message);
+            }
+        }
+
+        [HttpDelete("delete-row/{tableName}/{id}")]
+        public async Task<IActionResult> DeleteRow(string tableName, int id)
+        {
+            if (string.IsNullOrEmpty(tableName))
+            {
+                return BadRequest("Table name cannot be empty.");
+            }
+
+            if (tableName != "gameplay.PlayerSessionLog")
+            {
+                return BadRequest("Deletion is only supported for PlayerSessionLog table.");
+            }
+
+            try
+            {
+                var logEntry = await _context.PlayerSessionLogs.FindAsync(id);
+                if (logEntry == null)
+                {
+                    return NotFound($"Row with ID {id} not found in {tableName}.");
+                }
+
+                _context.PlayerSessionLogs.Remove(logEntry);
+                await _context.SaveChangesAsync();
+
+                return Ok(
+                    new { message = $"Row with ID {id} deleted successfully from {tableName}." }
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error deleting row with ID {id} from table {tableName}.");
                 return StatusCode(500, "Internal server error: " + ex.Message);
             }
         }

@@ -306,6 +306,7 @@ public class WebSocketHandler : IWebSocketHandler
                                             "Updating session log with spawn details."
                                         );
                                         // Update session log with current spawn attempt details using server's current time
+                                        sessionLog.LastKnownPosition = spawnRequest.PlayerPosition;
                                         sessionLog.LastSpawnAttempt = DateTime.UtcNow;
                                         sessionLog.CurrentSpawnRadius = spawnRequest.SpawnRadius;
                                     }

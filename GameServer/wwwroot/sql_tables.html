@@ -265,7 +265,10 @@
 
                     // Create header row
                     const headerRow = document.createElement('tr');
-                    // Assuming all objects in the array have the same keys
+                    const actionsTh = document.createElement('th');
+                    actionsTh.textContent = 'Actions';
+                    headerRow.appendChild(actionsTh);
+
                     Object.keys(data[0]).forEach(key => {
                         const th = document.createElement('th');
                         th.textContent = key;
@@ -277,6 +280,13 @@
                     // Create data rows
                     data.forEach(rowObject => {
                         const tr = document.createElement('tr');
+                        const deleteTd = document.createElement('td');
+                        const deleteButton = document.createElement('button');
+                        deleteButton.textContent = 'Delete';
+                        deleteButton.addEventListener('click', () => deleteRow(encodeURIComponent(selectedTable), rowObject.Id));
+                        deleteTd.appendChild(deleteButton);
+                        tr.appendChild(deleteTd);
+
                         Object.values(rowObject).forEach(value => {
                             const td = document.createElement('td');
 
@@ -318,6 +328,33 @@
             catch (error) {
                 console.error('Display data error:', error);
                 showMessage(exportMessage, 'An error occurred while fetching table data.', 'error');
+            }
+        }
+
+        async function deleteRow(tableName, id) {
+            if (!confirm(`Are you sure you want to delete row with ID ${id} from ${decodeURIComponent(tableName)}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Debug/delete-row/${tableName}/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    showMessage(exportMessage, `Row with ID ${id} deleted successfully.`, 'success');
+                    displayTableData(); // Refresh the table
+                } else {
+                    const errorText = await response.text();
+                    showMessage(exportMessage, `Error deleting row: ${errorText || response.statusText}`, 'error');
+                }
+            }
+            catch (error) {
+                console.error('Delete row error:', error);
+                showMessage(exportMessage, 'An error occurred while deleting the row.', 'error');
             }
         }
 
