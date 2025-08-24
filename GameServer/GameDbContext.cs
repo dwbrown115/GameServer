@@ -13,6 +13,9 @@ public class GameDbContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<RefreshTokenRecord> RefreshTokens { get; set; }
     public DbSet<ObjectLifecycleLog> ObjectLifecycleLogs { get; set; }
+    public DbSet<Leaderboard> Leaderboards { get; set; }
+    public DbSet<UserData> UserDatas { get; set; }
+    public DbSet<Skins> Skins { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
