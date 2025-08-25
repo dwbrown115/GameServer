@@ -86,6 +86,7 @@
     </div>
     <script src="js/site.js" asp-append-version="true"></script>
     <script>
+    const LAST_TABLE_KEY = 'debug_lastViewedTable';
         const tableSelect = document.getElementById('table-select');
         const exportButton = document.getElementById('export-button');
         const displayButton = document.getElementById('display-button');
@@ -107,13 +108,20 @@
             tableSelect.innerHTML = '';
             tables.sort((a, b) => { if (a === 'gameplay.PlayerSessionLog') return -1; if (b === 'gameplay.PlayerSessionLog') return 1; return a.localeCompare(b); });
             tables.forEach(table => { const option = document.createElement('option'); option.value = table; option.textContent = table; tableSelect.appendChild(option); });
+            // Restore last viewed table if it still exists
+            const last = localStorage.getItem(LAST_TABLE_KEY);
+            if (last && tables.includes(last)) {
+                tableSelect.value = last;
+            }
+            // Load selected (restored or first) automatically
+            if (tableSelect.value) displayTableData();
         }
 
-        async function checkAuthAndLoadTables() {
+    async function checkAuthAndLoadTables() {
             if (!jwtToken) { window.location.href = 'debug.html'; return; }
             try {
                 const response = await fetch(`${API_BASE_URL}/api/Debug/tables`, { headers: { 'Authorization': `Bearer ${jwtToken}` } });
-                if (response.ok) { const tables = await response.json(); populateTableSelect(tables); }
+        if (response.ok) { const tables = await response.json(); populateTableSelect(tables); }
                 else if (response.status === 401) { window.location.href = 'debug.html'; }
                 else { showMessage(exportMessage, `Error loading tables: ${response.statusText}`, 'error'); }
             } catch { showMessage(exportMessage, 'Could not connect to server or load tables.', 'error'); window.location.href = 'debug.html'; }
@@ -142,6 +150,8 @@
         async function displayTableData() {
             const selectedTable = tableSelect.value;
             if (!selectedTable) { showMessage(exportMessage, 'Please select a table to display.', 'error'); createRowControls.style.display='none'; return; }
+            // Persist selection
+            localStorage.setItem(LAST_TABLE_KEY, selectedTable);
             tableDataDisplay.innerHTML = 'Loading data...'; showMessage(exportMessage, '', ''); createRowControls.style.display='none'; createRowMessage.textContent='';
             try {
                 const response = await fetch(`${API_BASE_URL}/api/Debug/table-data/${selectedTable}`, { headers: { 'Authorization': `Bearer ${jwtToken}` } });
@@ -343,7 +353,11 @@
             } catch { showMessage(exportMessage, 'An error occurred during export.', 'error'); }
         });
 
-        displayButton.addEventListener('click', displayTableData);
+        // Auto-load on selection change
+        tableSelect.addEventListener('change', () => {
+            displayTableData();
+        });
+        displayButton.addEventListener('click', displayTableData); // still available as manual refresh
         document.addEventListener('DOMContentLoaded', checkAuthAndLoadTables);
 
         // Add draggable column resizers (Excel-like)
