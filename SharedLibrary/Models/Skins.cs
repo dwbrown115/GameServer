@@ -12,5 +12,7 @@ namespace SharedLibrary.Models
         public required string UUID { get; set; }
 
         public required string HexValue { get; set; }
+
+        public required int Price { get; set; }
     }
 }

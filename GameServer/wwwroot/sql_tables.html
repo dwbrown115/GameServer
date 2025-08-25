@@ -47,6 +47,7 @@
     .column-resizer { position: absolute; top: 0; right: 0; height: 100%; width: 6px; cursor: col-resize; user-select: none; z-index: 5; }
     .column-resizer:hover, .column-resizer.active { background: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.25) 50%, transparent 100%); }
     .resizing-col { opacity: 0.85; }
+    .dirty-cell { outline:2px solid #ffc107; outline-offset:-2px; }
     </style>
 </head>
 <body>
@@ -70,6 +71,7 @@
         <div id="table-data-display"></div>
         <div id="new-row-controls" style="margin-top:15px; display:none;">
             <button id="create-row-button" class="btn" style="background-color:#17a2b8;">Create New Row</button>
+            <button id="save-all-button" class="btn" style="background-color:#6c757d; display:none;">Save All</button>
             <span id="create-row-message" style="display:block;margin-top:8px;font-size:.9em;"></span>
         </div>
     </div>
@@ -95,6 +97,8 @@
     const createRowControls = document.getElementById('new-row-controls');
     const createRowButton = document.getElementById('create-row-button');
     const createRowMessage = document.getElementById('create-row-message');
+    const saveAllButton = document.getElementById('save-all-button');
+    let currentColumns = null; // tracks columns of currently displayed table
 
         const API_BASE_URL = window.location.origin;
         let jwtToken = localStorage.getItem('jwtToken');
@@ -149,10 +153,10 @@
 
         async function displayTableData() {
             const selectedTable = tableSelect.value;
-            if (!selectedTable) { showMessage(exportMessage, 'Please select a table to display.', 'error'); createRowControls.style.display='none'; return; }
+            if (!selectedTable) { showMessage(exportMessage, 'Please select a table to display.', 'error'); createRowControls.style.display='none'; saveAllButton.style.display='none'; return; }
             // Persist selection
             localStorage.setItem(LAST_TABLE_KEY, selectedTable);
-            tableDataDisplay.innerHTML = 'Loading data...'; showMessage(exportMessage, '', ''); createRowControls.style.display='none'; createRowMessage.textContent='';
+            tableDataDisplay.innerHTML = 'Loading data...'; showMessage(exportMessage, '', ''); createRowControls.style.display='none'; saveAllButton.style.display='none'; createRowMessage.textContent='';
             try {
                 const response = await fetch(`${API_BASE_URL}/api/Debug/table-data/${selectedTable}`, { headers: { 'Authorization': `Bearer ${jwtToken}` } });
                 if (response.ok) {
@@ -218,7 +222,7 @@
 
                             if(valStr.length > 1 && isJson(valStr)){
                                 const wrapper = document.createElement('div'); wrapper.className='json-cell-wrapper';
-                                const ta = document.createElement('textarea'); ta.className='cell-textarea'; ta.value = valStr; ta.id = baseId + '_json'; wrapper.appendChild(ta); autoSizeTextarea(ta); ta.addEventListener('input', () => autoSizeTextarea(ta));
+                                const ta = document.createElement('textarea'); ta.className='cell-textarea'; ta.value = valStr; ta.dataset.originalValue = valStr; ta.id = baseId + '_json'; wrapper.appendChild(ta); autoSizeTextarea(ta); ta.addEventListener('input', () => { autoSizeTextarea(ta); if(ta.value !== ta.dataset.originalValue){ ta.classList.add('dirty-cell'); } else { ta.classList.remove('dirty-cell'); } });
                                 const btnRow = document.createElement('div'); btnRow.className='json-button-row';
                                 const btn = document.createElement('button'); btn.type='button'; btn.textContent='Show JSON'; btn.className='show-json-btn'; btn.id = baseId + '_showjson';
                                 btn.addEventListener('click', () => { const modal=document.getElementById('jsonModal'); const modalContent=document.getElementById('modalJsonContent'); try{ modalContent.textContent = JSON.stringify(JSON.parse(ta.value), null, 2);} catch { modalContent.textContent='Invalid JSON'; } modal.style.display='flex'; });
@@ -226,7 +230,7 @@
                                 // no flex height
                             } else {
                                 const input = document.createElement('input');
-                                input.type='text'; input.className='cell-input'; input.value = valStr; input.id = baseId + '_txt';
+                                input.type='text'; input.className='cell-input'; input.value = valStr; input.dataset.originalValue = valStr; input.id = baseId + '_txt';
                                 applyInputSize(input);
                                 input.addEventListener('input', () => {
                                     applyInputSize(input);
@@ -236,6 +240,7 @@
                                     } else {
                                         td.style.backgroundColor = '';
                                     }
+                                    if(input.value !== input.dataset.originalValue){ input.classList.add('dirty-cell'); } else { input.classList.remove('dirty-cell'); }
                                 });
                                 td.appendChild(input);
                                 // Initial hex detection
@@ -257,6 +262,8 @@
                     table.dataset.columnNames = headerColumnNames.join('|');
                     tableDataDisplay.innerHTML = ''; tableDataDisplay.appendChild(table);
                     createRowControls.style.display='block';
+                    saveAllButton.style.display='inline-block';
+                    currentColumns = columns.slice();
                     // Attempt to restore saved widths before adding resizers
                     loadColumnWidths(table, storageKey, headerColumnNames);
                     addColumnResizers(table);
@@ -320,6 +327,8 @@
                     body: JSON.stringify(payload)
                 });
                 if(response.ok){
+                    // clear dirty markers for that row
+                    rowElement.querySelectorAll('.dirty-cell').forEach(el => { el.classList.remove('dirty-cell'); el.dataset.originalValue = el.value; });
                     showMessage(exportMessage, `Row ${id} saved.`, 'success');
                 } else {
                     const txt = await response.text();
@@ -329,6 +338,60 @@
                 showMessage(exportMessage, 'Network error while saving row.', 'error');
             }
         }
+
+        async function saveAllRows(){
+            if(!currentColumns){ showMessage(exportMessage, 'No table loaded.', 'error'); return; }
+            const tableName = tableSelect.value;
+            if(!tableName){ showMessage(exportMessage, 'No table selected.', 'error'); return; }
+            const table = tableDataDisplay.querySelector('table');
+            if(!table){ showMessage(exportMessage, 'No data to save.', 'error'); return; }
+            saveAllButton.disabled = true;
+            let saved = 0, attempted = 0, errors = [];
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            const idIndex = currentColumns.indexOf('Id');
+            for(const tr of rows){
+                const dirtyFields = tr.querySelectorAll('.dirty-cell');
+                if(dirtyFields.length === 0) continue;
+                attempted++;
+                const payload = {};
+                let rowId = null;
+                if(idIndex >= 0){
+                    const idCell = tr.cells[idIndex + 1];
+                    if(idCell) rowId = (idCell.textContent||'').trim();
+                }
+                currentColumns.forEach((colName, cIdx) => {
+                    if(colName === 'Id') return;
+                    const cell = tr.cells[cIdx + 1];
+                    if(!cell) return;
+                    const input = cell.querySelector('input.cell-input');
+                    const ta = cell.querySelector('textarea.cell-textarea');
+                    const el = input || ta;
+                    if(!el) return;
+                    if(el.value !== (el.dataset.originalValue ?? '')) payload[colName] = el.value;
+                });
+                if(Object.keys(payload).length === 0) continue;
+                try {
+                    const resp = await fetch(`${API_BASE_URL}/api/Debug/update-row/${encodeURIComponent(tableName)}/${rowId}`, {
+                        method:'PUT',
+                        headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${jwtToken}` },
+                        body: JSON.stringify(payload)
+                    });
+                    if(resp.ok){
+                        saved++;
+                        tr.querySelectorAll('.dirty-cell').forEach(el => { el.classList.remove('dirty-cell'); el.dataset.originalValue = el.value; });
+                    } else {
+                        const t = await resp.text(); errors.push(`Row ${rowId}: ${t||resp.status}`);
+                    }
+                } catch(ex){ errors.push(`Row ${rowId}: ${ex.message}`); }
+            }
+            if(errors.length){
+                showMessage(exportMessage, `Save All: ${saved}/${attempted} rows saved. Errors: ${errors.slice(0,3).join(' | ')}${errors.length>3?` (+${errors.length-3} more)`:''}`,'error');
+            } else {
+                if(attempted===0) showMessage(exportMessage, 'Save All: no changes to save.', 'success'); else showMessage(exportMessage, `Save All: ${saved}/${attempted} rows saved.`, 'success');
+            }
+            saveAllButton.disabled = false;
+        }
+        saveAllButton.addEventListener('click', saveAllRows);
 
         const jsonModal = document.getElementById('jsonModal');
         const closeButton = jsonModal.querySelector('.close-button');
