@@ -12,9 +12,6 @@ public static class UserIdUtility
     public static string GenerateBase64UserId()
     {
         var guidBytes = Guid.NewGuid().ToByteArray();
-        return Convert.ToBase64String(guidBytes)
-            .Replace("+", "-")
-            .Replace("/", "_")
-            .TrimEnd('='); // URL-safe
+        return Convert.ToBase64String(guidBytes).Replace("+", "-").Replace("/", "_").TrimEnd('='); // URL-safe
     }
 }

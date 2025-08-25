@@ -25,7 +25,7 @@
     #table-data-display th, #table-data-display td { border: 1px solid var(--border-color); padding: 0; text-align: left; white-space: nowrap; }
     .actions-cell { padding: 4px 8px !important; }
         #table-data-display th { background-color: var(--secondary-bg-color); color: var(--text-color); padding: 8px; }
-        .cell-input, .cell-textarea { height: 100%; border: none; background: transparent; color: inherit; font: inherit; padding: 6px 4px; margin: 0; box-sizing: border-box; outline: none; }
+    .cell-input, .cell-textarea { height: 100%; border: none; background: var(--primary-bg-color); color: inherit; font: inherit; padding: 6px 4px; margin: 0; box-sizing: border-box; outline: none; }
         /* Dynamic width inputs use size attribute; inline-block prevents full cell stretch */
     .cell-input { display:block; width:100%; min-width:0; line-height:1.2; box-sizing:border-box; padding:6px 4px; overflow:hidden; }
     .cell-textarea { resize: both; overflow:auto; min-height:2.4em; white-space:pre-wrap; width:100%; max-width:100%; box-sizing:border-box; }
@@ -68,6 +68,10 @@
     <div id="data-display-container">
         <h2>Table Data Display</h2>
         <div id="table-data-display"></div>
+        <div id="new-row-controls" style="margin-top:15px; display:none;">
+            <button id="create-row-button" class="btn" style="background-color:#17a2b8;">Create New Row</button>
+            <span id="create-row-message" style="display:block;margin-top:8px;font-size:.9em;"></span>
+        </div>
     </div>
     <div id="jsonModal" class="modal">
         <div class="modal-content">
@@ -87,6 +91,9 @@
         const displayButton = document.getElementById('display-button');
         const exportMessage = document.getElementById('export-message');
         const tableDataDisplay = document.getElementById('table-data-display');
+    const createRowControls = document.getElementById('new-row-controls');
+    const createRowButton = document.getElementById('create-row-button');
+    const createRowMessage = document.getElementById('create-row-message');
 
         const API_BASE_URL = window.location.origin;
         let jwtToken = localStorage.getItem('jwtToken');
@@ -118,21 +125,55 @@
 
         function applyInputSize(input){ const len = input.value.length; input.size = Math.max(len, 1); }
 
+        function isHexColor(str){
+            if(typeof str !== 'string') return false;
+            const trimmed = str.trim();
+            return /^#?[0-9a-fA-F]{6}$/.test(trimmed);
+        }
+
+        function normalizeHex(str){
+            if(!str) return null;
+            let h = str.trim();
+            if(!/^#/.test(h)) h = '#' + h;
+            if(/^#[0-9a-fA-F]{6}$/.test(h)) return h;
+            return null;
+        }
+
         async function displayTableData() {
             const selectedTable = tableSelect.value;
-            if (!selectedTable) { showMessage(exportMessage, 'Please select a table to display.', 'error'); return; }
-            tableDataDisplay.innerHTML = 'Loading data...'; showMessage(exportMessage, '', '');
+            if (!selectedTable) { showMessage(exportMessage, 'Please select a table to display.', 'error'); createRowControls.style.display='none'; return; }
+            tableDataDisplay.innerHTML = 'Loading data...'; showMessage(exportMessage, '', ''); createRowControls.style.display='none'; createRowMessage.textContent='';
             try {
                 const response = await fetch(`${API_BASE_URL}/api/Debug/table-data/${selectedTable}`, { headers: { 'Authorization': `Bearer ${jwtToken}` } });
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.length === 0) { tableDataDisplay.innerHTML = '<p>No data found for this table.</p>'; return; }
+                    let columns = [];
+                    if (data.length === 0) {
+                        try {
+                            const metaResp = await fetch(`${API_BASE_URL}/api/Debug/table-columns/${encodeURIComponent(selectedTable)}`, { headers: { 'Authorization': `Bearer ${jwtToken}` } });
+                            if (metaResp.ok) {
+                                const meta = await metaResp.json();
+                                columns = meta.map(m => m.name);
+                                tableDataDisplay.innerHTML = '<p>No data found for this table.</p>';
+                            } else {
+                                tableDataDisplay.innerHTML = '<p>No data and failed to load column metadata.</p>';
+                                createRowControls.style.display='block';
+                                return;
+                            }
+                        } catch {
+                            tableDataDisplay.innerHTML = '<p>No data and error loading column metadata.</p>';
+                            createRowControls.style.display='block';
+                            return;
+                        }
+                    } else {
+                        columns = Object.keys(data[0]);
+                    }
                     const table = document.createElement('table');
                     const thead = document.createElement('thead');
                     const tbody = document.createElement('tbody');
                     const headerRow = document.createElement('tr');
                     const actionsTh = document.createElement('th'); actionsTh.textContent = 'Actions'; actionsTh.className = 'actions-cell'; headerRow.appendChild(actionsTh);
-                    const columns = Object.keys(data[0]);
+                    // columns already determined above
                     // Build colgroup (actions + each data column)
                     const colgroup = document.createElement('colgroup');
                     const totalCols = columns.length + 1; // actions + data
@@ -174,7 +215,24 @@
                                 btnRow.appendChild(btn); wrapper.appendChild(btnRow); td.appendChild(wrapper);
                                 // no flex height
                             } else {
-                                const input = document.createElement('input'); input.type='text'; input.className='cell-input'; input.value = valStr; input.id = baseId + '_txt'; applyInputSize(input); input.addEventListener('input', () => applyInputSize(input)); td.appendChild(input);
+                                const input = document.createElement('input');
+                                input.type='text'; input.className='cell-input'; input.value = valStr; input.id = baseId + '_txt';
+                                applyInputSize(input);
+                                input.addEventListener('input', () => {
+                                    applyInputSize(input);
+                                    if(isHexColor(input.value)){
+                                        const hx = normalizeHex(input.value);
+                                        if(hx){ td.style.backgroundColor = hx; }
+                                    } else {
+                                        td.style.backgroundColor = '';
+                                    }
+                                });
+                                td.appendChild(input);
+                                // Initial hex detection
+                                if(isHexColor(valStr)){
+                                    const hxInit = normalizeHex(valStr);
+                                    if(hxInit) td.style.backgroundColor = hxInit;
+                                }
                                 // no flex height
                             }
                             tr.appendChild(td);
@@ -188,13 +246,41 @@
                     table.dataset.storageKey = storageKey;
                     table.dataset.columnNames = headerColumnNames.join('|');
                     tableDataDisplay.innerHTML = ''; tableDataDisplay.appendChild(table);
+                    createRowControls.style.display='block';
                     // Attempt to restore saved widths before adding resizers
                     loadColumnWidths(table, storageKey, headerColumnNames);
                     addColumnResizers(table);
                 } else if (response.status === 401) { showMessage(exportMessage, 'Unauthorized to view table data. Please log in again.', 'error'); window.location.href = 'debug.html'; }
-                else { const errorText = await response.text(); showMessage(exportMessage, `Error displaying data: ${response.statusText} - ${errorText}`, 'error'); }
+                else { const errorText = await response.text(); showMessage(exportMessage, `Error displaying data: ${response.statusText} - ${errorText}`, 'error'); createRowControls.style.display='block'; }
             } catch (e) { console.error('Display data error:', e); showMessage(exportMessage, 'An error occurred while fetching table data.', 'error'); }
         }
+
+        async function createNewRow(){
+            const selectedTable = tableSelect.value;
+            if(!selectedTable){ showMessage(exportMessage, 'Select a table first.', 'error'); return; }
+            createRowMessage.textContent='Creating row...';
+            createRowMessage.style.color='';
+            try {
+                // Fetch column metadata to build an empty row structure
+                const colResp = await fetch(`${API_BASE_URL}/api/Debug/table-columns/${encodeURIComponent(selectedTable)}`, { headers: { 'Authorization': `Bearer ${jwtToken}` }});
+                if(!colResp.ok){ createRowMessage.textContent='Failed to get columns.'; createRowMessage.style.color='#b30000'; return; }
+                const colsMeta = await colResp.json();
+                const payload = {}; // server ignores Id
+                colsMeta.forEach(c => { if(!c.isKey){ payload[c.name] = null; }});
+                const resp = await fetch(`${API_BASE_URL}/api/Debug/create-row/${encodeURIComponent(selectedTable)}`, {
+                    method:'POST',
+                    headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${jwtToken}` },
+                    body: JSON.stringify(payload)
+                });
+                if(!resp.ok){ const t = await resp.text(); createRowMessage.textContent = 'Create failed: ' + (t||resp.statusText); createRowMessage.style.color='#b30000'; return; }
+                const result = await resp.json();
+                createRowMessage.textContent = 'Row created (ID: ' + result.id + '). Refreshing...';
+                createRowMessage.style.color = '#155724';
+                // Reload table data to show new row (could optimize by appending)
+                await displayTableData();
+            } catch(err){ createRowMessage.textContent='Error creating row.'; createRowMessage.style.color='#b30000'; }
+        }
+        createRowButton.addEventListener('click', createNewRow);
 
         async function deleteRow(tableName, id) {
             if (!confirm(`Are you sure you want to delete row with ID ${id} from ${decodeURIComponent(tableName)}?`)) return;
@@ -205,8 +291,7 @@
             } catch { showMessage(exportMessage, 'An error occurred while deleting the row.', 'error'); }
         }
 
-        async function saveRow(tableName, id, rowElement, columns){
-            if(tableName !== 'gameplay.PlayerSessionLog') { showMessage(exportMessage, 'Saving currently only supported for gameplay.PlayerSessionLog.', 'error'); return; }
+    async function saveRow(tableName, id, rowElement, columns){
             const payload = {};
             columns.forEach((colName, colIdx) => {
                 if(colName === 'Id') return; // skip primary key
