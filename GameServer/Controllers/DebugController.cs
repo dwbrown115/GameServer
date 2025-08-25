@@ -236,5 +236,65 @@ namespace GameServer.Controllers
                 return StatusCode(500, "Internal server error: " + ex.Message);
             }
         }
+
+        [HttpPut("update-row/{tableName}/{id}")]
+        public async Task<IActionResult> UpdateRow(string tableName, int id, [FromBody] Dictionary<string, object> updatedValues)
+        {
+            if (string.IsNullOrEmpty(tableName)) return BadRequest("Table name cannot be empty.");
+            if (updatedValues == null || updatedValues.Count == 0) return BadRequest("No values provided.");
+
+            // For safety currently only allow updates to gameplay.PlayerSessionLog
+            if (tableName != "gameplay.PlayerSessionLog") return BadRequest("Updates are only supported for PlayerSessionLog table.");
+
+            var entity = await _context.PlayerSessionLogs.FindAsync(id);
+            if (entity == null) return NotFound($"Row with ID {id} not found in {tableName}.");
+
+            // Prevent changing primary key
+            updatedValues.Remove("Id");
+
+            var entityEntry = _context.Entry(entity);
+            foreach (var kvp in updatedValues)
+            {
+                var prop = entityEntry.Property(kvp.Key);
+                if (prop == null) continue; // skip unknown
+                try
+                {
+                    if (kvp.Value == null)
+                    {
+                        prop.CurrentValue = null;
+                        continue;
+                    }
+                    var targetType = prop.Metadata.ClrType;
+                    object? converted = null;
+                    if (targetType == typeof(string)) converted = kvp.Value.ToString();
+                    else if (targetType.IsEnum) converted = Enum.Parse(targetType, kvp.Value.ToString()!, true);
+                    else if (targetType == typeof(int) || targetType == typeof(int?)) converted = Convert.ToInt32(kvp.Value);
+                    else if (targetType == typeof(float) || targetType == typeof(float?)) converted = Convert.ToSingle(kvp.Value);
+                    else if (targetType == typeof(bool) || targetType == typeof(bool?)) converted = Convert.ToBoolean(kvp.Value);
+                    else if (targetType == typeof(DateTime) || targetType == typeof(DateTime?)) converted = DateTime.Parse(kvp.Value.ToString()!);
+                    else
+                    {
+                        // Fallback attempt direct change type
+                        converted = Convert.ChangeType(kvp.Value, targetType);
+                    }
+                    prop.CurrentValue = converted;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed converting property {Property} value {Value}", kvp.Key, kvp.Value);
+                }
+            }
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(new { message = $"Row {id} updated successfully." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating row {Id} in {Table}", id, tableName);
+                return StatusCode(500, "Internal server error: " + ex.Message);
+            }
+        }
     }
 }

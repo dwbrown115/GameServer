@@ -8,114 +8,45 @@
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         .sql-export-container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+            .form-select { margin-bottom: 10px; padding-top: 10px; padding-bottom: 10px; }
+            .btn { margin-bottom: 10px;}
         h1, h2 { text-align: center; }
-        label, input, button, select { display: block; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+        label, input, button, select { display: block; width: 100%; box-sizing: border-box; }
         input[type="submit"], button { background-color: #007bff; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 4px; }
         input[type="submit"]:hover, button:hover { background-color: #0056b3; }
         #message { margin-top: 10px; padding: 10px; border-radius: 4px; }
         .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        /* New styles for table display */
-        #data-display-container { /* New container for the table data */
-            max-width: 2000px; /* Increased max-width for data display */
-            margin-top: 40px; /* More separation from the export section */
-            padding: 20px;
-            border: 1px solid var(--border-color); /* Use CSS variable for border */
-            border-radius: 8px;
-            width: 100%; /* Stretch to fit screen */
-            box-sizing: border-box; /* Include padding and border in the element's total width and height */
-        }
-        #data-display-container h2 {
-            text-align: left; /* Align heading to left within its container */
-            margin-top: 0;
-            margin-bottom: 20px;
-        }
-        #table-data-display {
-            overflow-x: auto; /* Enable horizontal scrolling for wide tables */
-        }
-        #table-data-display table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: auto; /* Allow columns to size based on content */
-        }
-        #table-data-display th, #table-data-display td {
-            border: 1px solid var(--border-color); /* Use CSS variable for border */
-            padding: 8px;
-            text-align: left;
-            white-space: nowrap; /* Prevent text wrapping in cells */
-        }
-        #table-data-display th {
-            background-color: var(--secondary-bg-color); /* Use CSS variable for background */
-            color: var(--text-color); /* Use CSS variable for text color */
-        }
-        /* Dark mode adjustments for table - these are now handled by CSS variables */
-
+        #data-display-container { max-width: 2000px; margin-top: 40px; padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; width: 100%; box-sizing: border-box; }
+        #data-display-container h2 { text-align: left; margin-top: 0; margin-bottom: 20px; }
+        #table-data-display { overflow-x: auto; }
+    #table-data-display table { width: 100%; border-collapse: collapse; table-layout: auto; }
+    .resizable-table { table-layout: auto; } /* switches to fixed only after first manual resize */
+    #table-data-display th, #table-data-display td { border: 1px solid var(--border-color); padding: 0; text-align: left; white-space: nowrap; }
+    .actions-cell { padding: 4px 8px !important; }
+        #table-data-display th { background-color: var(--secondary-bg-color); color: var(--text-color); padding: 8px; }
+        .cell-input, .cell-textarea { height: 100%; border: none; background: transparent; color: inherit; font: inherit; padding: 6px 4px; margin: 0; box-sizing: border-box; outline: none; }
+        /* Dynamic width inputs use size attribute; inline-block prevents full cell stretch */
+    .cell-input { display:block; width:100%; min-width:0; line-height:1.2; box-sizing:border-box; padding:6px 4px; overflow:hidden; }
+    .cell-textarea { resize: both; overflow:auto; min-height:2.4em; white-space:pre-wrap; width:100%; max-width:100%; box-sizing:border-box; }
+    .json-cell-wrapper { display:flex; flex-direction:column; gap:4px; width:100%; min-width:0; box-sizing:border-box; padding: 5px; }
+    .json-button-row { display:flex; justify-content:center; width:100%; }
+    .show-json-btn { background:#007bff; color:#fff; border:none; padding:4px 8px; cursor:pointer; border-radius:3px; font-size:.7rem; width:50%; max-width:200px; text-align:center; }
+        .show-json-btn:hover { background:#0056b3; }
         /* Modal Styles */
-        .modal {
-            display: none; /* Hidden by default */
-            position: fixed; /* Stay in place */
-            z-index: 1000; /* Sit on top */
-            left: 0;
-            top: 0;
-            width: 100%; /* Full width */
-            height: 100%; /* Full height */
-            overflow: auto; /* Enable scroll if needed */
-            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-content {
-            background-color: var(--primary-bg-color);
-            margin: auto;
-            padding: 20px;
-            border: 1px solid var(--border-color);
-            width: 80%; /* Could be responsive */
-            max-width: 800px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
-            color: var(--text-color);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-        }
-
-        .modal-header h2 {
-            margin: 0;
-            text-align: left; /* Override center alignment for h2 */
-            color: var(--text-color);
-        }
-
-        .close-button {
-            color: var(--text-color);
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .close-button:hover,
-        .close-button:focus {
-            color: #000; /* Darker on hover */
-            text-decoration: none;
-            cursor: pointer;
-        }
-
-        .modal-body pre {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-size: 0.9em;
-            background-color: var(--secondary-bg-color);
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
-        }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
+        .modal-content { background-color: var(--primary-bg-color); margin: auto; padding: 20px; border: 1px solid var(--border-color); width: 80%; max-width: 800px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2), 0 6px 20px rgba(0,0,0,0.19); color: var(--text-color); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; }
+        .modal-header h2 { margin: 0; text-align: left; color: var(--text-color); }
+        .close-button { color: var(--text-color); font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close-button:hover, .close-button:focus { color: #000; text-decoration: none; cursor: pointer; }
+        .modal-body pre { white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; background-color: var(--secondary-bg-color); padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); color: var(--text-color); }
+        .id-cell { text-align: center !important; font-weight: 600; padding: 6px 4px; }
+    /* Column Resizing */
+    .resizable-table th { position: relative; }
+    .column-resizer { position: absolute; top: 0; right: 0; height: 100%; width: 6px; cursor: col-resize; user-select: none; z-index: 5; }
+    .column-resizer:hover, .column-resizer.active { background: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.25) 50%, transparent 100%); }
+    .resizing-col { opacity: 0.85; }
     </style>
 </head>
 <body>
@@ -125,24 +56,19 @@
             <label class="form-check-label" for="darkModeToggle">Dark Mode</label>
         </div>
         <h1>SQL Tables Export</h1>
-
         <div id="debug-section">
             <h2>Excel Export</h2>
             <label for="table-select">Select Table:</label>
-            <select id="table-select"></select>
-            <button id="export-button">Export to Excel</button>
-            <button id="display-button">Display Table Data</button> <!-- New button -->
+            <select class="form-select" id="table-select"></select>
+            <button class="btn" id="export-button">Export to Excel</button>
+            <button class="btn" id="display-button">Display Table Data</button>
             <div id="export-message" class="message"></div>
         </div>
     </div>
-
-    <!-- New section for displaying table data -->
     <div id="data-display-container">
         <h2>Table Data Display</h2>
         <div id="table-data-display"></div>
     </div>
-
-    <!-- JSON Modal Structure -->
     <div id="jsonModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -154,281 +80,293 @@
             </div>
         </div>
     </div>
-
     <script src="js/site.js" asp-append-version="true"></script>
     <script>
         const tableSelect = document.getElementById('table-select');
         const exportButton = document.getElementById('export-button');
-        const displayButton = document.getElementById('display-button'); // New element
+        const displayButton = document.getElementById('display-button');
         const exportMessage = document.getElementById('export-message');
-        const tableDataDisplay = document.getElementById('table-data-display'); // New element
+        const tableDataDisplay = document.getElementById('table-data-display');
 
-        const API_BASE_URL = window.location.origin; // Assumes API is on the same origin
-
+        const API_BASE_URL = window.location.origin;
         let jwtToken = localStorage.getItem('jwtToken');
 
-        // Function to display messages
         function showMessage(element, message, type) {
             element.textContent = message;
             element.className = 'message ' + type;
         }
 
-        // Populate table dropdown
         function populateTableSelect(tables) {
-            tableSelect.innerHTML = ''; // Clear existing options
-
-            // Sort the tables array to bring 'gameplay.PlayerSessionLog' to the top
-            tables.sort((a, b) => {
-                if (a === 'gameplay.PlayerSessionLog') return -1;
-                if (b === 'gameplay.PlayerSessionLog') return 1;
-                return a.localeCompare(b); // Keep other tables in alphabetical order
-            });
-
-            tables.forEach(table => {
-                const option = document.createElement('option');
-                option.value = table;
-                option.textContent = table;
-                tableSelect.appendChild(option);
-            });
+            tableSelect.innerHTML = '';
+            tables.sort((a, b) => { if (a === 'gameplay.PlayerSessionLog') return -1; if (b === 'gameplay.PlayerSessionLog') return 1; return a.localeCompare(b); });
+            tables.forEach(table => { const option = document.createElement('option'); option.value = table; option.textContent = table; tableSelect.appendChild(option); });
         }
 
-        // Function to check if token exists and is potentially valid
         async function checkAuthAndLoadTables() {
-            if (!jwtToken) {
-                window.location.href = 'debug.html'; // Redirect to login if no token
-                return;
-            }
-
+            if (!jwtToken) { window.location.href = 'debug.html'; return; }
             try {
-                const response = await fetch(`${API_BASE_URL}/api/Debug/tables`, {
-                    headers: {
-                        'Authorization': `Bearer ${jwtToken}`
-                    }
-                });
-
-                if (response.ok) {
-                    const tables = await response.json();
-                    populateTableSelect(tables);
-                } else if (response.status === 401) {
-                    window.location.href = 'debug.html'; // Redirect to login if unauthorized
-                } else {
-                    showMessage(exportMessage, `Error loading tables: ${response.statusText}`, 'error');
-                }
-            }
-            catch (error) {
-                console.error('Error checking authentication or loading tables:', error);
-                showMessage(exportMessage, 'Could not connect to server or load tables.', 'error');
-                window.location.href = 'debug.html'; // Redirect on network error
-            }
+                const response = await fetch(`${API_BASE_URL}/api/Debug/tables`, { headers: { 'Authorization': `Bearer ${jwtToken}` } });
+                if (response.ok) { const tables = await response.json(); populateTableSelect(tables); }
+                else if (response.status === 401) { window.location.href = 'debug.html'; }
+                else { showMessage(exportMessage, `Error loading tables: ${response.statusText}`, 'error'); }
+            } catch { showMessage(exportMessage, 'Could not connect to server or load tables.', 'error'); window.location.href = 'debug.html'; }
         }
 
-        // Helper function to check if a string is valid JSON
-        function isJson(str) {
-            try {
-                const parsed = JSON.parse(str);
-                // Check if the parsed result is an object or array, not a primitive
-                return (typeof parsed === 'object' && parsed !== null) || Array.isArray(parsed);
-            } catch (e) {
-                return false;
-            }
-        }
+        function isJson(str){ if(typeof str!=='string') return false; try{ const p=JSON.parse(str); return (typeof p==='object' && p!==null)||Array.isArray(p); } catch { return false; } }
 
-        // Function to display table data
+        function autoSizeTextarea(el){ el.style.height='auto'; el.style.height=el.scrollHeight+'px'; }
+
+        function applyInputSize(input){ const len = input.value.length; input.size = Math.max(len, 1); }
+
         async function displayTableData() {
             const selectedTable = tableSelect.value;
-            if (!selectedTable) {
-                showMessage(exportMessage, 'Please select a table to display.', 'error');
-                return;
-            }
-
-            tableDataDisplay.innerHTML = 'Loading data...';
-            showMessage(exportMessage, '', ''); // Clear previous messages
-
+            if (!selectedTable) { showMessage(exportMessage, 'Please select a table to display.', 'error'); return; }
+            tableDataDisplay.innerHTML = 'Loading data...'; showMessage(exportMessage, '', '');
             try {
-                const response = await fetch(`${API_BASE_URL}/api/Debug/table-data/${selectedTable}`, {
-                    headers: {
-                        'Authorization': `Bearer ${jwtToken}`
-                    }
-                });
-
+                const response = await fetch(`${API_BASE_URL}/api/Debug/table-data/${selectedTable}`, { headers: { 'Authorization': `Bearer ${jwtToken}` } });
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.length === 0) {
-                        tableDataDisplay.innerHTML = '<p>No data found for this table.</p>';
-                        return;
-                    }
-
-                    // Create table element
+                    if (data.length === 0) { tableDataDisplay.innerHTML = '<p>No data found for this table.</p>'; return; }
                     const table = document.createElement('table');
                     const thead = document.createElement('thead');
                     const tbody = document.createElement('tbody');
-
-                    // Create header row
                     const headerRow = document.createElement('tr');
-                    const actionsTh = document.createElement('th');
-                    actionsTh.textContent = 'Actions';
-                    headerRow.appendChild(actionsTh);
-
-                    Object.keys(data[0]).forEach(key => {
-                        const th = document.createElement('th');
-                        th.textContent = key;
-                        headerRow.appendChild(th);
-                    });
-                    thead.appendChild(headerRow);
-                    table.appendChild(thead);
-
-                    // Create data rows
-                    data.forEach(rowObject => {
+                    const actionsTh = document.createElement('th'); actionsTh.textContent = 'Actions'; actionsTh.className = 'actions-cell'; headerRow.appendChild(actionsTh);
+                    const columns = Object.keys(data[0]);
+                    // Build colgroup (actions + each data column)
+                    const colgroup = document.createElement('colgroup');
+                    const totalCols = columns.length + 1; // actions + data
+                    for(let i=0;i<totalCols;i++){ const colEl=document.createElement('col'); colgroup.appendChild(colEl); }
+                    table.appendChild(colgroup);
+                    columns.forEach(col => { const th = document.createElement('th'); th.textContent = col; headerRow.appendChild(th); });
+                    thead.appendChild(headerRow); table.appendChild(thead);
+                    const tableKey = selectedTable.replace(/[^a-zA-Z0-9]/g, '_');
+                    data.forEach((rowObject, rowIdx) => {
                         const tr = document.createElement('tr');
-                        const deleteTd = document.createElement('td');
-                        const deleteButton = document.createElement('button');
-                        deleteButton.textContent = 'Delete';
+                        const actionsTd = document.createElement('td'); actionsTd.className='actions-cell';
+                        const saveButton = document.createElement('button'); saveButton.textContent = 'Save'; saveButton.style.backgroundColor = '#28a745'; saveButton.style.marginBottom='4px';
+                        saveButton.addEventListener('click', () => saveRow(selectedTable, rowObject.Id, tr, columns));
+                        const deleteButton = document.createElement('button'); deleteButton.textContent = 'Delete';
                         deleteButton.addEventListener('click', () => deleteRow(encodeURIComponent(selectedTable), rowObject.Id));
-                        deleteTd.appendChild(deleteButton);
-                        tr.appendChild(deleteTd);
-
-                        Object.values(rowObject).forEach(value => {
+                        actionsTd.appendChild(saveButton);
+                        actionsTd.appendChild(deleteButton);
+                        tr.appendChild(actionsTd);
+                        columns.forEach((colName, colIdx) => {
                             const td = document.createElement('td');
+                            const raw = rowObject[colName] === null || rowObject[colName] === undefined ? '' : rowObject[colName];
+                            const valStr = typeof raw === 'string' ? raw : String(raw);
+                            const baseId = `${tableKey}_r${rowIdx}_c${colIdx}_${colName}`;
 
-                            if (isJson(value)) {
-                                const parsedJson = JSON.parse(value);
-                                const prettyJson = JSON.stringify(parsedJson, null, 2);
+                            // Non-editable ID column centered
+                            if(colName === 'Id') {
+                                td.className = 'id-cell';
+                                td.textContent = valStr;
+                                tr.appendChild(td);
+                                return; // continue to next column
+                            }
 
-                                const viewJsonButton = document.createElement('button');
-                                viewJsonButton.textContent = 'View JSON';
-                                viewJsonButton.style.cssText = 'background-color: #007bff; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; width: auto;';
-                                td.appendChild(viewJsonButton);
-
-                                viewJsonButton.addEventListener('click', () => {
-                                    const modal = document.getElementById('jsonModal');
-                                    const modalContent = document.getElementById('modalJsonContent');
-                                    modalContent.textContent = prettyJson;
-                                    modal.style.display = 'flex'; // Use flex to center the modal
-                                });
-
+                            if(valStr.length > 1 && isJson(valStr)){
+                                const wrapper = document.createElement('div'); wrapper.className='json-cell-wrapper';
+                                const ta = document.createElement('textarea'); ta.className='cell-textarea'; ta.value = valStr; ta.id = baseId + '_json'; wrapper.appendChild(ta); autoSizeTextarea(ta); ta.addEventListener('input', () => autoSizeTextarea(ta));
+                                const btnRow = document.createElement('div'); btnRow.className='json-button-row';
+                                const btn = document.createElement('button'); btn.type='button'; btn.textContent='Show JSON'; btn.className='show-json-btn'; btn.id = baseId + '_showjson';
+                                btn.addEventListener('click', () => { const modal=document.getElementById('jsonModal'); const modalContent=document.getElementById('modalJsonContent'); try{ modalContent.textContent = JSON.stringify(JSON.parse(ta.value), null, 2);} catch { modalContent.textContent='Invalid JSON'; } modal.style.display='flex'; });
+                                btnRow.appendChild(btn); wrapper.appendChild(btnRow); td.appendChild(wrapper);
+                                // no flex height
                             } else {
-                                td.textContent = value;
+                                const input = document.createElement('input'); input.type='text'; input.className='cell-input'; input.value = valStr; input.id = baseId + '_txt'; applyInputSize(input); input.addEventListener('input', () => applyInputSize(input)); td.appendChild(input);
+                                // no flex height
                             }
                             tr.appendChild(td);
                         });
                         tbody.appendChild(tr);
                     });
                     table.appendChild(tbody);
-
-                    tableDataDisplay.innerHTML = ''; // Clear loading message
-                    tableDataDisplay.appendChild(table);
-                } else if (response.status === 401) {
-                    showMessage(exportMessage, 'Unauthorized to view table data. Please log in again.', 'error');
-                    window.location.href = 'debug.html';
-                } else {
-                    const errorText = await response.text();
-                    showMessage(exportMessage, `Error displaying data: ${response.statusText} - ${errorText}`, 'error');
-                }
-            }
-            catch (error) {
-                console.error('Display data error:', error);
-                showMessage(exportMessage, 'An error occurred while fetching table data.', 'error');
-            }
+                    table.classList.add('resizable-table');
+                    const headerColumnNames = ['Actions', ...columns];
+                    const storageKey = `colWidths_${tableKey}`;
+                    table.dataset.storageKey = storageKey;
+                    table.dataset.columnNames = headerColumnNames.join('|');
+                    tableDataDisplay.innerHTML = ''; tableDataDisplay.appendChild(table);
+                    // Attempt to restore saved widths before adding resizers
+                    loadColumnWidths(table, storageKey, headerColumnNames);
+                    addColumnResizers(table);
+                } else if (response.status === 401) { showMessage(exportMessage, 'Unauthorized to view table data. Please log in again.', 'error'); window.location.href = 'debug.html'; }
+                else { const errorText = await response.text(); showMessage(exportMessage, `Error displaying data: ${response.statusText} - ${errorText}`, 'error'); }
+            } catch (e) { console.error('Display data error:', e); showMessage(exportMessage, 'An error occurred while fetching table data.', 'error'); }
         }
 
         async function deleteRow(tableName, id) {
-            if (!confirm(`Are you sure you want to delete row with ID ${id} from ${decodeURIComponent(tableName)}?`)) {
-                return;
-            }
-
+            if (!confirm(`Are you sure you want to delete row with ID ${id} from ${decodeURIComponent(tableName)}?`)) return;
             try {
-                const response = await fetch(`${API_BASE_URL}/api/Debug/delete-row/${tableName}/${id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${jwtToken}`
-                    }
-                });
+                const response = await fetch(`${API_BASE_URL}/api/Debug/delete-row/${tableName}/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${jwtToken}` } });
+                if (response.ok) { showMessage(exportMessage, `Row with ID ${id} deleted successfully.`, 'success'); displayTableData(); }
+                else { const errorText = await response.text(); showMessage(exportMessage, `Error deleting row: ${errorText || response.statusText}`, 'error'); }
+            } catch { showMessage(exportMessage, 'An error occurred while deleting the row.', 'error'); }
+        }
 
-                if (response.ok) {
-                    showMessage(exportMessage, `Row with ID ${id} deleted successfully.`, 'success');
-                    displayTableData(); // Refresh the table
+        async function saveRow(tableName, id, rowElement, columns){
+            if(tableName !== 'gameplay.PlayerSessionLog') { showMessage(exportMessage, 'Saving currently only supported for gameplay.PlayerSessionLog.', 'error'); return; }
+            const payload = {};
+            columns.forEach((colName, colIdx) => {
+                if(colName === 'Id') return; // skip primary key
+                const cell = rowElement.cells[colIdx + 1]; // +1 offset for Actions column
+                if(!cell) return;
+                // Try textarea first
+                const ta = cell.querySelector('textarea.cell-textarea');
+                if(ta){ payload[colName] = ta.value; return; }
+                const input = cell.querySelector('input.cell-input');
+                if(input){ payload[colName] = input.value; }
+            });
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Debug/update-row/${encodeURIComponent(tableName)}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
+                    body: JSON.stringify(payload)
+                });
+                if(response.ok){
+                    showMessage(exportMessage, `Row ${id} saved.`, 'success');
                 } else {
-                    const errorText = await response.text();
-                    showMessage(exportMessage, `Error deleting row: ${errorText || response.statusText}`, 'error');
+                    const txt = await response.text();
+                    showMessage(exportMessage, `Save failed: ${txt || response.statusText}`, 'error');
                 }
-            }
-            catch (error) {
-                console.error('Delete row error:', error);
-                showMessage(exportMessage, 'An error occurred while deleting the row.', 'error');
+            } catch(err){
+                showMessage(exportMessage, 'Network error while saving row.', 'error');
             }
         }
 
-        // Modal control logic
         const jsonModal = document.getElementById('jsonModal');
         const closeButton = jsonModal.querySelector('.close-button');
+        closeButton.addEventListener('click', () => { jsonModal.style.display = 'none'; });
+        jsonModal.addEventListener('click', (event) => { if (event.target === jsonModal) { jsonModal.style.display = 'none'; } });
 
-        closeButton.addEventListener('click', () => {
-            jsonModal.style.display = 'none';
-        });
-
-        // Close modal when clicking outside of the modal-content
-        jsonModal.addEventListener('click', (event) => {
-            if (event.target === jsonModal) {
-                jsonModal.style.display = 'none';
-            }
-        });
-
-        // Export button click
         exportButton.addEventListener('click', async () => {
             const selectedTable = tableSelect.value;
-            if (!selectedTable) {
-                showMessage(exportMessage, 'Please select a table.', 'error');
-                return;
-            }
-
+            if (!selectedTable) { showMessage(exportMessage, 'Please select a table.', 'error'); return; }
             try {
-                const response = await fetch(`${API_BASE_URL}/api/Debug/export-excel`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${jwtToken}`
-                    },
-                    body: JSON.stringify(selectedTable) // Send table name as plain string in body
-                });
-
+                const response = await fetch(`${API_BASE_URL}/api/Debug/export-excel`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` }, body: JSON.stringify(selectedTable) });
                 if (response.ok) {
-                    // Get filename from Content-Disposition header
                     const contentDisposition = response.headers.get('Content-Disposition');
                     let filename = 'export.xlsx';
                     if (contentDisposition && contentDisposition.indexOf('attachment') !== -1) {
-                        const filenameRegex = /filename[^;=\n]*=((['"]).*?\u0002|[^;\n]*)/;
+                        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
                         const matches = filenameRegex.exec(contentDisposition);
-                        if (matches != null && matches[1]) {
-                            filename = matches[1].replace(/['"]/g, '');
-                        }
+                        if (matches != null && matches[1]) { filename = matches[1].replace(/['"]/g, ''); }
                     }
+                    const blob = await response.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url); showMessage(exportMessage, 'Export successful! File downloaded.', 'success');
+                } else { const errorText = await response.text(); showMessage(exportMessage, `Export failed: ${errorText || response.statusText}`, 'error'); }
+            } catch { showMessage(exportMessage, 'An error occurred during export.', 'error'); }
+        });
 
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    window.URL.revokeObjectURL(url);
-                    showMessage(exportMessage, 'Export successful! File downloaded.', 'success');
-                } else {
-                    const errorText = await response.text();
-                    showMessage(exportMessage, `Export failed: ${errorText || response.statusText}`, 'error');
-                }
+        displayButton.addEventListener('click', displayTableData);
+        document.addEventListener('DOMContentLoaded', checkAuthAndLoadTables);
+
+        // Add draggable column resizers (Excel-like)
+        const colResizeState = { active: false, startX: 0, startWidth: 0, th: null, colIndex: -1, table: null, resizer: null, colEl: null };
+        function addColumnResizers(table){
+            const thead = table.querySelector('thead');
+            if(!thead) return;
+            const headerCells = Array.from(thead.querySelectorAll('th'));
+            const colEls = table.querySelectorAll('colgroup col');
+            headerCells.forEach((th, idx) => {
+                if(idx === headerCells.length - 1) return; // skip last header
+                if(th.querySelector('.column-resizer')) return; // already added
+                const resizer = document.createElement('div');
+                resizer.className = 'column-resizer';
+                th.appendChild(resizer);
+                resizer.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    // On first user resize, lock in all existing column widths to preserve layout
+                    if(!table.classList.contains('resized-once')){
+                        headerCells.forEach((h, i) => {
+                            const colElAll = colEls[i];
+                            if(colElAll){
+                                const w = h.offsetWidth; // current rendered width
+                                colElAll.style.width = w + 'px';
+                            }
+                        });
+                        table.classList.add('resized-once');
+                        table.style.tableLayout = 'fixed';
+                    }
+                    colResizeState.active = true;
+                    colResizeState.startX = e.clientX;
+                    // Determine starting width: prefer col width or th width
+                    const colEl = colEls[idx];
+                    const currentWidth = (colEl && colEl.style.width) ? parseInt(colEl.style.width, 10) : th.offsetWidth;
+                    colResizeState.startWidth = currentWidth;
+                    colResizeState.th = th;
+                    colResizeState.colIndex = idx;
+                    colResizeState.table = table;
+                    colResizeState.resizer = resizer;
+                    colResizeState.colEl = colEl;
+                    resizer.classList.add('active');
+                    document.body.style.cursor = 'col-resize';
+                });
+            });
+        }
+        window.addEventListener('mousemove', (e) => {
+            if(!colResizeState.active) return;
+            const delta = e.clientX - colResizeState.startX;
+            let newWidth = colResizeState.startWidth + delta;
+            if(newWidth < 30) newWidth = 30;
+            if(colResizeState.colEl){
+                colResizeState.colEl.style.width = newWidth + 'px';
+            } else {
+                // Fallback if col element missing
+                colResizeState.th.style.width = newWidth + 'px';
             }
-            catch (error) {
-                console.error('Export error:', error);
-                showMessage(exportMessage, 'An error occurred during export.', 'error');
+        });
+        window.addEventListener('mouseup', () => {
+            if(colResizeState.active){
+                colResizeState.active = false;
+                if(colResizeState.resizer) colResizeState.resizer.classList.remove('active');
+                document.body.style.cursor='';
+                // Save widths after a resize completes
+                if(colResizeState.table && colResizeState.table.dataset.storageKey){
+                    saveColumnWidths(colResizeState.table);
+                }
             }
         });
 
-        // Display button click
-        displayButton.addEventListener('click', displayTableData);
-
-        // Initial check on page load and load tables
-        document.addEventListener('DOMContentLoaded', checkAuthAndLoadTables);
+        // Persist & restore column widths ----------------------------------
+        function saveColumnWidths(table){
+            try {
+                const storageKey = table.dataset.storageKey;
+                if(!storageKey) return;
+                const headerCells = Array.from(table.querySelectorAll('thead th'));
+                const colEls = table.querySelectorAll('colgroup col');
+                const names = table.dataset.columnNames ? table.dataset.columnNames.split('|') : headerCells.map(h=>h.textContent.trim()||'');
+                const columns = names.map((name, idx) => {
+                    const colEl = colEls[idx];
+                    let width = colEl && colEl.style.width ? parseInt(colEl.style.width,10) : headerCells[idx]?.offsetWidth || 0;
+                    if(!width || isNaN(width)) width = headerCells[idx]?.offsetWidth || 0;
+                    return { name, width };
+                });
+                const payload = { version:1, columns };
+                localStorage.setItem(storageKey, JSON.stringify(payload));
+            } catch(e){ console.warn('Failed to save column widths', e); }
+        }
+        function loadColumnWidths(table, storageKey, headerNames){
+            try {
+                const raw = localStorage.getItem(storageKey);
+                if(!raw) return;
+                const parsed = JSON.parse(raw);
+                if(!parsed || !parsed.columns) return;
+                const map = new Map(parsed.columns.map(c=>[c.name, c.width]));
+                const colEls = table.querySelectorAll('colgroup col');
+                headerNames.forEach((name, idx) => {
+                    const w = map.get(name);
+                    if(w && colEls[idx]){
+                        colEls[idx].style.width = w + 'px';
+                    }
+                });
+                // If any width applied, set fixed layout to honor them
+                if(parsed.columns.some(c=>c.width)){
+                    table.classList.add('resized-once');
+                    table.style.tableLayout = 'fixed';
+                }
+            } catch(e){ console.warn('Failed to load column widths', e); }
+        }
     </script>
 </body>
 </html>
