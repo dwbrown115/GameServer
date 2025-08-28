@@ -20,5 +20,8 @@ namespace SharedLibrary.Models
         public DateTime ScoreTimestamp { get; set; }
 
         public DateTime PreviousScoreTimestamp { get; set; }
+
+        // JSON (string) representing an array of objects: { HighScoreAtTime: int, HighScoreAtTimestamp: DateTime }
+        public string? HighScoreLog { get; set; }
     }
 }

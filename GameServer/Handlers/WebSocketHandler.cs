@@ -17,13 +17,13 @@ namespace GameServer.Handlers;
 public class ClaimObjectWebSocketRequest
 {
     [JsonProperty("request_type")]
-    public string RequestType { get; set; }
+    public string RequestType { get; set; } = null!;
 
     [JsonProperty("session_id")]
-    public string SessionId { get; set; }
+    public string SessionId { get; set; } = null!;
 
     [JsonProperty("claimedObject")]
-    public ObjectClaimedRequest ClaimedObject { get; set; }
+    public ObjectClaimedRequest ClaimedObject { get; set; } = null!;
 }
 
 public class WebSocketHandler : IWebSocketHandler
@@ -113,7 +113,9 @@ public class WebSocketHandler : IWebSocketHandler
                         switch (requestType)
                         {
                             case "player_ping":
-                                var playerPing = JsonConvert.DeserializeObject<PlayerPing>(messageString);
+                                var playerPing = JsonConvert.DeserializeObject<PlayerPing>(
+                                    messageString
+                                );
                                 _logger.LogInformation(
                                     "Player {PlayerId} ping: SessionId={SessionId}, X={X}, Y={Y}, Radius={Radius}, LastSpawnAttempt={LastSpawnAttempt}, AttemptedClientScore={AttemptedClientScore}",
                                     playerPing.PlayerId,
@@ -128,33 +130,48 @@ public class WebSocketHandler : IWebSocketHandler
                                 if (sessionLog != null)
                                 {
                                     sessionLog.LastKnownPosition = playerPing.CurrentPosition;
-                                    sessionLog.AttemptedClientScore = playerPing.AttemptedClientScore;
+                                    sessionLog.AttemptedClientScore =
+                                        playerPing.AttemptedClientScore;
 
-                                    var positionLogList = !string.IsNullOrEmpty(sessionLog.PlayerPositionLog) ?
-                                        JsonConvert.DeserializeObject<List<PlayerPositionLogEntry>>(sessionLog.PlayerPositionLog) :
-                                        new List<PlayerPositionLogEntry>();
+                                    var positionLogList = !string.IsNullOrEmpty(
+                                        sessionLog.PlayerPositionLog
+                                    )
+                                        ? JsonConvert.DeserializeObject<
+                                            List<PlayerPositionLogEntry>
+                                        >(sessionLog.PlayerPositionLog)
+                                        : new List<PlayerPositionLogEntry>();
 
-                                    positionLogList.Add(new PlayerPositionLogEntry
-                                    {
-                                        X = playerPing.CurrentPosition?.X ?? 0.0f,
-                                        Y = playerPing.CurrentPosition?.Y ?? 0.0f,
-                                        PlayerId = sessionLog.PlayerId,
-                                        Timestamp = DateTime.UtcNow
-                                    });
-                                    sessionLog.PlayerPositionLog = JsonConvert.SerializeObject(positionLogList);
+                                    positionLogList.Add(
+                                        new PlayerPositionLogEntry
+                                        {
+                                            X = playerPing.CurrentPosition?.X ?? 0.0f,
+                                            Y = playerPing.CurrentPosition?.Y ?? 0.0f,
+                                            PlayerId = sessionLog.PlayerId,
+                                            Timestamp = DateTime.UtcNow,
+                                        }
+                                    );
+                                    sessionLog.PlayerPositionLog = JsonConvert.SerializeObject(
+                                        positionLogList
+                                    );
 
                                     await dbContext.SaveChangesAsync();
 
-                                    var status = sessionLog.ScoreServer == sessionLog.AttemptedClientScore ? "Ok" : "Bad";
+                                    var status =
+                                        sessionLog.ScoreServer == sessionLog.AttemptedClientScore
+                                            ? "Ok"
+                                            : "Bad";
 
                                     var response = new PlayerPingResponse
                                     {
                                         SessionId = sessionId,
                                         Status = status,
-                                        ServerScore = sessionLog.ScoreServer
+                                        ServerScore = sessionLog.ScoreServer,
                                     };
                                     var responseString = JsonConvert.SerializeObject(response);
-                                    _logger.LogInformation("Sending PlayerPingResponse: {response}", responseString);
+                                    _logger.LogInformation(
+                                        "Sending PlayerPingResponse: {response}",
+                                        responseString
+                                    );
                                     var responseBytes = Encoding.UTF8.GetBytes(responseString);
                                     await socket.SendAsync(
                                         new ArraySegment<byte>(responseBytes),
@@ -324,18 +341,26 @@ public class WebSocketHandler : IWebSocketHandler
                                         sessionLog.LastSpawnAttempt = DateTime.UtcNow;
                                         sessionLog.CurrentSpawnRadius = spawnRequest.SpawnRadius;
 
-                                        var positionLogList = !string.IsNullOrEmpty(sessionLog.PlayerPositionLog) ?
-                                            JsonConvert.DeserializeObject<List<PlayerPositionLogEntry>>(sessionLog.PlayerPositionLog) :
-                                            new List<PlayerPositionLogEntry>();
+                                        var positionLogList = !string.IsNullOrEmpty(
+                                            sessionLog.PlayerPositionLog
+                                        )
+                                            ? JsonConvert.DeserializeObject<
+                                                List<PlayerPositionLogEntry>
+                                            >(sessionLog.PlayerPositionLog)
+                                            : new List<PlayerPositionLogEntry>();
 
-                                        positionLogList.Add(new PlayerPositionLogEntry
-                                        {
-                                            X = spawnRequest.PlayerPosition?.X ?? 0.0f,
-                                            Y = spawnRequest.PlayerPosition?.Y ?? 0.0f,
-                                            PlayerId = sessionLog.PlayerId,
-                                            Timestamp = DateTime.UtcNow
-                                        });
-                                        sessionLog.PlayerPositionLog = JsonConvert.SerializeObject(positionLogList);
+                                        positionLogList.Add(
+                                            new PlayerPositionLogEntry
+                                            {
+                                                X = spawnRequest.PlayerPosition?.X ?? 0.0f,
+                                                Y = spawnRequest.PlayerPosition?.Y ?? 0.0f,
+                                                PlayerId = sessionLog.PlayerId,
+                                                Timestamp = DateTime.UtcNow,
+                                            }
+                                        );
+                                        sessionLog.PlayerPositionLog = JsonConvert.SerializeObject(
+                                            positionLogList
+                                        );
                                     }
                                     else
                                     {
@@ -421,17 +446,22 @@ public class WebSocketHandler : IWebSocketHandler
                                                     ServerScore = sessionLogForClaim.ScoreServer,
                                                     ObjectId = objectClaimedRequest.Id,
                                                     PlayerId = sessionLogForClaim.PlayerId,
-                                                    Timestamp = DateTime.UtcNow
+                                                    Timestamp = DateTime.UtcNow,
                                                 };
 
-                                                var scoreLogs = !string.IsNullOrEmpty(sessionLogForClaim.ScoreLog)
-                                                    ? JsonConvert.DeserializeObject<List<ScoreLogEntry>>(sessionLogForClaim.ScoreLog)
+                                                var scoreLogs = !string.IsNullOrEmpty(
+                                                    sessionLogForClaim.ScoreLog
+                                                )
+                                                    ? JsonConvert.DeserializeObject<
+                                                        List<ScoreLogEntry>
+                                                    >(sessionLogForClaim.ScoreLog)
                                                     : new List<ScoreLogEntry>();
-                                                
+
                                                 if (scoreLogs != null)
                                                 {
                                                     scoreLogs.Add(scoreLogEntry);
-                                                    sessionLogForClaim.ScoreLog = JsonConvert.SerializeObject(scoreLogs);
+                                                    sessionLogForClaim.ScoreLog =
+                                                        JsonConvert.SerializeObject(scoreLogs);
                                                 }
 
                                                 sessionLogForClaim.ObjectLifecycleLog =
@@ -548,6 +578,147 @@ public class WebSocketHandler : IWebSocketHandler
         }
         finally
         {
+            // Mark session end timestamp if not already set
+            if (sessionLog != null && sessionLog.SessionEnd == null)
+            {
+                try
+                {
+                    sessionLog.SessionEnd = DateTime.UtcNow;
+                    await dbContext.SaveChangesAsync();
+                    _logger.LogInformation(
+                        "Session {SessionId} ended at {SessionEndUtc}",
+                        sessionId,
+                        sessionLog.SessionEnd
+                    );
+                }
+                catch (Exception persistEx)
+                {
+                    _logger.LogError(
+                        persistEx,
+                        "Failed to persist session end for SessionId {SessionId}",
+                        sessionId
+                    );
+                }
+            }
+            // Upsert into gameplay.Leaderboard based on this session's final server score
+            if (sessionLog != null)
+            {
+                try
+                {
+                    var userId = sessionLog.PlayerId; // PlayerId holds the UserId for the session
+                    var currentScore = sessionLog.ScoreServer;
+                    var now = DateTime.UtcNow;
+
+                    // Fetch existing leaderboard entry
+                    var lbEntry = await dbContext.Leaderboards.FirstOrDefaultAsync(l =>
+                        l.UserId == userId
+                    );
+                    if (lbEntry == null)
+                    {
+                        // Resolve username from users.Users table
+                        var userRecord = await dbContext.Users.FirstOrDefaultAsync(u =>
+                            u.UUID == userId
+                        );
+                        var username = userRecord?.Username ?? "Unknown";
+                        lbEntry = new Leaderboard
+                        {
+                            UserId = userId,
+                            Username = username,
+                            PlayerHighestScore = currentScore,
+                            PreviousScoreTimestamp = now,
+                            ScoreTimestamp = now,
+                            HighScoreLog = JsonConvert.SerializeObject(
+                                new List<HighScoreLogEntry>
+                                {
+                                    new HighScoreLogEntry
+                                    {
+                                        HighScoreAtTime = currentScore,
+                                        HighScoreAtTimestamp = now,
+                                    },
+                                }
+                            ),
+                        };
+                        await dbContext.Leaderboards.AddAsync(lbEntry);
+                        _logger.LogInformation(
+                            "Leaderboard entry created for UserId {UserId} with score {Score}",
+                            userId,
+                            currentScore
+                        );
+                    }
+                    else
+                    {
+                        // Always overwrite score and shift timestamps per updated requirement
+                        lbEntry.PreviousScoreTimestamp = lbEntry.ScoreTimestamp;
+                        lbEntry.ScoreTimestamp = now;
+                        lbEntry.PlayerHighestScore = currentScore;
+                        var userRecord = await dbContext.Users.FirstOrDefaultAsync(u =>
+                            u.UUID == userId
+                        );
+                        if (userRecord != null && userRecord.Username != lbEntry.Username)
+                            lbEntry.Username = userRecord.Username;
+
+                        // Initialize or append to HighScoreLog
+                        try
+                        {
+                            List<HighScoreLogEntry> logEntries;
+                            if (string.IsNullOrWhiteSpace(lbEntry.HighScoreLog))
+                            {
+                                logEntries = new List<HighScoreLogEntry>();
+                            }
+                            else
+                            {
+                                logEntries =
+                                    JsonConvert.DeserializeObject<List<HighScoreLogEntry>>(
+                                        lbEntry.HighScoreLog!
+                                    ) ?? new List<HighScoreLogEntry>();
+                            }
+                            logEntries.Add(
+                                new HighScoreLogEntry
+                                {
+                                    HighScoreAtTime = currentScore,
+                                    HighScoreAtTimestamp = now,
+                                }
+                            );
+                            lbEntry.HighScoreLog = JsonConvert.SerializeObject(logEntries);
+                        }
+                        catch (Exception parseEx)
+                        {
+                            _logger.LogWarning(
+                                parseEx,
+                                "Failed to parse existing HighScoreLog for UserId {UserId}; reinitializing.",
+                                userId
+                            );
+                            lbEntry.HighScoreLog = JsonConvert.SerializeObject(
+                                new List<HighScoreLogEntry>
+                                {
+                                    new HighScoreLogEntry
+                                    {
+                                        HighScoreAtTime = currentScore,
+                                        HighScoreAtTimestamp = now,
+                                    },
+                                }
+                            );
+                        }
+                        _logger.LogInformation(
+                            "Leaderboard entry refreshed for UserId {UserId} -> Score {Score} (prev ts {PrevTs} new ts {NewTs})",
+                            userId,
+                            currentScore,
+                            lbEntry.PreviousScoreTimestamp,
+                            lbEntry.ScoreTimestamp
+                        );
+                    }
+                    await dbContext.SaveChangesAsync();
+                }
+                catch (Exception lbEx)
+                {
+                    _logger.LogError(
+                        lbEx,
+                        "Failed to upsert leaderboard for SessionId {SessionId} / UserId {UserId}",
+                        sessionId,
+                        sessionLog.PlayerId
+                    );
+                }
+            }
             // Ensure the socket is closed if it's still open
             if (socket.State == WebSocketState.Open || socket.State == WebSocketState.CloseReceived)
             {

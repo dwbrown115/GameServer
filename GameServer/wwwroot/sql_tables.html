@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SQL Tables Export</title>
+    <title>SQL Tables</title>
     <link rel="stylesheet" href="css/site.css" asp-append-version="true"/>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
@@ -56,7 +56,7 @@
             <input class="form-check-input" type="checkbox" id="darkModeToggle">
             <label class="form-check-label" for="darkModeToggle">Dark Mode</label>
         </div>
-        <h1>SQL Tables Export</h1>
+        <h1>SQL Tables</h1>
         <div id="debug-section">
             <h2>Excel Export</h2>
             <label for="table-select">Select Table:</label>
@@ -72,6 +72,7 @@
         <div id="new-row-controls" style="margin-top:15px; display:none;">
             <button id="create-row-button" class="btn" style="background-color:#17a2b8;">Create New Row</button>
             <button id="save-all-button" class="btn" style="background-color:#6c757d; display:none;">Save All</button>
+            <button id="refresh-button" class="btn" style="background-color:#0d6efd; display:none;">Refresh</button>
             <span id="create-row-message" style="display:block;margin-top:8px;font-size:.9em;"></span>
         </div>
     </div>
@@ -98,6 +99,7 @@
     const createRowButton = document.getElementById('create-row-button');
     const createRowMessage = document.getElementById('create-row-message');
     const saveAllButton = document.getElementById('save-all-button');
+    const refreshButton = document.getElementById('refresh-button');
     let currentColumns = null; // tracks columns of currently displayed table
 
         const API_BASE_URL = window.location.origin;
@@ -153,10 +155,10 @@
 
         async function displayTableData() {
             const selectedTable = tableSelect.value;
-            if (!selectedTable) { showMessage(exportMessage, 'Please select a table to display.', 'error'); createRowControls.style.display='none'; saveAllButton.style.display='none'; return; }
+            if (!selectedTable) { showMessage(exportMessage, 'Please select a table to display.', 'error'); createRowControls.style.display='none'; saveAllButton.style.display='none'; refreshButton.style.display='none'; return; }
             // Persist selection
             localStorage.setItem(LAST_TABLE_KEY, selectedTable);
-            tableDataDisplay.innerHTML = 'Loading data...'; showMessage(exportMessage, '', ''); createRowControls.style.display='none'; saveAllButton.style.display='none'; createRowMessage.textContent='';
+            tableDataDisplay.innerHTML = 'Loading data...'; showMessage(exportMessage, '', ''); createRowControls.style.display='none'; saveAllButton.style.display='none'; refreshButton.style.display='none'; createRowMessage.textContent='';
             try {
                 const response = await fetch(`${API_BASE_URL}/api/Debug/table-data/${selectedTable}`, { headers: { 'Authorization': `Bearer ${jwtToken}` } });
                 if (response.ok) {
@@ -263,6 +265,7 @@
                     tableDataDisplay.innerHTML = ''; tableDataDisplay.appendChild(table);
                     createRowControls.style.display='block';
                     saveAllButton.style.display='inline-block';
+                    refreshButton.style.display='inline-block';
                     currentColumns = columns.slice();
                     // Attempt to restore saved widths before adding resizers
                     loadColumnWidths(table, storageKey, headerColumnNames);
@@ -392,6 +395,7 @@
             saveAllButton.disabled = false;
         }
         saveAllButton.addEventListener('click', saveAllRows);
+    refreshButton.addEventListener('click', () => { displayTableData(); });
 
         const jsonModal = document.getElementById('jsonModal');
         const closeButton = jsonModal.querySelector('.close-button');

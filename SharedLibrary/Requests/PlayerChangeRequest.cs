@@ -9,11 +9,13 @@ public class PlayerChangeRequest
 {
     [Required]
     public required string UserId { get; set; }
+
     [Required]
     public required string DeviceId { get; set; }
+
     [Required]
     public required string RefreshToken { get; set; }
-    
+
     // This object is not required, but if it's present, its contents will be validated.
     public PlayerChangesPayload? Changes { get; set; }
 }
@@ -30,6 +32,7 @@ public class PasswordChangePayload
 {
     [Required]
     public required string OldPassword { get; set; }
+
     [Required]
     public required string NewPassword { get; set; }
 }

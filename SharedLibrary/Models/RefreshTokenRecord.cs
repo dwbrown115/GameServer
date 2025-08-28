@@ -19,8 +19,6 @@ namespace SharedLibrary.Models
         [Required]
         public required string EncryptedRefreshToken { get; set; }
 
-        
-
         public DateTime ExpiresAt { get; set; }
 
         public bool IsRevoked { get; set; } = false;
