@@ -39,8 +39,22 @@ public class AuthenticationService : IAuthenticationService
             UpdatedAt = DateTime.UtcNow,
             Salt = salt,
         };
-
+        // Add the new user
         _context.Users.Add(user);
+
+        // Automatically provision a gameplay.UserData row if one does not already exist for this user (should not in normal registration path)
+        if (!_context.UserDatas.Any(ud => ud.UserId == user.UUID))
+        {
+            var userData = new UserData
+            {
+                UserId = user.UUID,
+                Points = 0,
+                OwnedSkins = Newtonsoft.Json.JsonConvert.SerializeObject(new List<object>()), // empty JSON array
+                PointsLog = Newtonsoft.Json.JsonConvert.SerializeObject(new List<PointsLogEntry>()), // empty JSON array
+            };
+            _context.UserDatas.Add(userData);
+        }
+
         _context.SaveChanges();
 
         // Console.WriteLine($"[AuthenticationService] User '{username}' registered successfully with UUID: {user.UUID}");
@@ -50,8 +64,13 @@ public class AuthenticationService : IAuthenticationService
     public async Task<LoginResult?> Login(AuthenticationRequest request)
     {
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
-        if (user == null || !AuthenticationHelpers.VerifyPassword(request.Password, user.PasswordHash, user.Salt))
+        if (
+            user == null
+            || !AuthenticationHelpers.VerifyPassword(request.Password, user.PasswordHash, user.Salt)
+        )
+        {
             return null;
+        }
 
         var tokenRecord = await _jwtService.GenerateAndStoreJwtAsync(user.UUID, request.DeviceId);
         var jwt = _jwtService.GenerateJwt(user.UUID);

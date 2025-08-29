@@ -14,5 +14,11 @@ namespace SharedLibrary.Models
         public required string UserId { get; set; }
 
         public required int Points { get; set; }
+
+        // JSON (string) representing an array of objects: { SkinId: string }
+        public string? OwnedSkins { get; set; }
+
+        // JSON (string) representing an array of objects: { PointsAtTime: int, PointsAtTimestamp: DateTime }
+        public string? PointsLog { get; set; }
     }
 }

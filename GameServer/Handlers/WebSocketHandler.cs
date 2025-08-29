@@ -719,6 +719,95 @@ public class WebSocketHandler : IWebSocketHandler
                     );
                 }
             }
+            // Upsert / award points in gameplay.UserData
+            if (sessionLog != null)
+            {
+                try
+                {
+                    var userId = sessionLog.PlayerId;
+                    var sessionPoints = sessionLog.ScoreServer;
+                    var userData = await dbContext.UserDatas.FirstOrDefaultAsync(u =>
+                        u.UserId == userId
+                    );
+                    if (userData == null)
+                    {
+                        // Validate user exists in users.Users
+                        var userExists = await dbContext.Users.AnyAsync(u => u.UUID == userId);
+                        if (!userExists)
+                        {
+                            _logger.LogWarning(
+                                "Skipping UserData creation; user {UserId} not found in users.Users",
+                                userId
+                            );
+                        }
+                        else
+                        {
+                            userData = new UserData
+                            {
+                                UserId = userId,
+                                Points = 0,
+                                OwnedSkins = JsonConvert.SerializeObject(new List<object>()),
+                                PointsLog = JsonConvert.SerializeObject(new List<PointsLogEntry>()),
+                            };
+                            await dbContext.UserDatas.AddAsync(userData);
+                            await dbContext.SaveChangesAsync();
+                            _logger.LogInformation(
+                                "Initialized UserData for UserId {UserId}",
+                                userId
+                            );
+                        }
+                    }
+                    if (userData != null)
+                    {
+                        // Parse or init PointsLog
+                        List<PointsLogEntry> pointsLog;
+                        if (string.IsNullOrWhiteSpace(userData.PointsLog))
+                        {
+                            pointsLog = new List<PointsLogEntry>();
+                        }
+                        else
+                        {
+                            try
+                            {
+                                pointsLog =
+                                    JsonConvert.DeserializeObject<List<PointsLogEntry>>(
+                                        userData.PointsLog!
+                                    ) ?? new List<PointsLogEntry>();
+                            }
+                            catch
+                            {
+                                pointsLog = new List<PointsLogEntry>();
+                            }
+                        }
+                        // Snapshot before update
+                        pointsLog.Add(
+                            new PointsLogEntry
+                            {
+                                PointsAtTime = userData.Points,
+                                PointsAtTimestamp = DateTime.UtcNow,
+                            }
+                        );
+                        userData.PointsLog = JsonConvert.SerializeObject(pointsLog);
+                        userData.Points += sessionPoints;
+                        await dbContext.SaveChangesAsync();
+                        _logger.LogInformation(
+                            "Awarded {Points} points to UserId {UserId}. New total {Total}",
+                            sessionPoints,
+                            userId,
+                            userData.Points
+                        );
+                    }
+                }
+                catch (Exception userDataEx)
+                {
+                    _logger.LogError(
+                        userDataEx,
+                        "Failed awarding points / updating UserData for SessionId {SessionId} / UserId {UserId}",
+                        sessionId,
+                        sessionLog.PlayerId
+                    );
+                }
+            }
             // Ensure the socket is closed if it's still open
             if (socket.State == WebSocketState.Open || socket.State == WebSocketState.CloseReceived)
             {
