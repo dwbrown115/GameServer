@@ -21,6 +21,87 @@ namespace GameServer.Controllers
             _logger = logger;
         }
 
+        [HttpGet("skins")]
+        [ProducesResponseType(typeof(SkinsDataResponse), 200)]
+        public async Task<IActionResult> GetSkins(CancellationToken ct)
+        {
+            var skins = await _db
+                .Skins.Select(s => new SkinDataItem
+                {
+                    SkinId = s.UUID,
+                    HexValue = s.HexValue,
+                    Price = s.Price,
+                })
+                .ToListAsync(ct);
+
+            var resp = new SkinsDataResponse { Payload = skins };
+            return Ok(resp);
+        }
+
+        [HttpGet("user-assets/{userId}")]
+        [ProducesResponseType(typeof(UserSkinsAndPointsResponse), 200)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> GetUserAssets(
+            [FromRoute] string userId,
+            CancellationToken ct
+        )
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return BadRequest(new { message = "Invalid userId" });
+            }
+
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.UUID == userId, ct);
+            if (user == null)
+            {
+                return NotFound(new { message = "User not found" });
+            }
+
+            var userData = await _db.UserDatas.FirstOrDefaultAsync(ud => ud.UserId == userId, ct);
+            if (userData == null)
+            {
+                // Provision empty user data (consistent with registration auto-provision)
+                userData = new UserData
+                {
+                    UserId = userId,
+                    Points = 0,
+                    OwnedSkins = JsonConvert.SerializeObject(new List<object>()),
+                };
+                _db.UserDatas.Add(userData);
+                await _db.SaveChangesAsync(ct);
+            }
+
+            List<string> ownedSkinIds;
+            if (string.IsNullOrWhiteSpace(userData.OwnedSkins))
+            {
+                ownedSkinIds = new List<string>();
+            }
+            else
+            {
+                try
+                {
+                    var ownedEntries =
+                        JsonConvert.DeserializeObject<List<SkinOwnershipEntry>>(
+                            userData.OwnedSkins!
+                        ) ?? new List<SkinOwnershipEntry>();
+                    ownedSkinIds = ownedEntries.Select(e => e.SkinId).ToList();
+                }
+                catch
+                {
+                    ownedSkinIds = new List<string>();
+                }
+            }
+
+            var response = new UserSkinsAndPointsResponse
+            {
+                UserId = userId,
+                Points = userData.Points,
+                OwnedSkinIds = ownedSkinIds,
+            };
+
+            return Ok(response);
+        }
+
         [HttpPost("buy-skin")]
         [ProducesResponseType(typeof(BuySkinResponse), 200)]
         public async Task<IActionResult> BuySkin(
