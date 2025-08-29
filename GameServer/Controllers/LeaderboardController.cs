@@ -22,6 +22,7 @@ namespace GameServer.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         [ProducesResponseType(typeof(LeaderboardDataResponse), 200)]
         public async Task<IActionResult> Get(CancellationToken ct)
         {

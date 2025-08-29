@@ -1,4 +1,5 @@
 using GameServer.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
@@ -22,6 +23,7 @@ namespace GameServer.Controllers
         }
 
         [HttpGet("skins")]
+        [AllowAnonymous]
         [ProducesResponseType(typeof(SkinsDataResponse), 200)]
         public async Task<IActionResult> GetSkins(CancellationToken ct)
         {
@@ -39,8 +41,10 @@ namespace GameServer.Controllers
         }
 
         [HttpGet("user-assets/{userId}")]
+        [Authorize]
         [ProducesResponseType(typeof(UserSkinsAndPointsResponse), 200)]
         [ProducesResponseType(404)]
+        [ProducesResponseType(403)]
         public async Task<IActionResult> GetUserAssets(
             [FromRoute] string userId,
             CancellationToken ct
@@ -49,6 +53,16 @@ namespace GameServer.Controllers
             if (string.IsNullOrWhiteSpace(userId))
             {
                 return BadRequest(new { message = "Invalid userId" });
+            }
+
+            // Enforce row-level security: only the authenticated user can access their own assets
+            var tokenUserId = User.FindFirst("sub")?.Value;
+            if (tokenUserId == null || tokenUserId != userId)
+            {
+                return StatusCode(
+                    403,
+                    new { message = "Forbidden: cannot access other user's assets" }
+                );
             }
 
             var user = await _db.Users.FirstOrDefaultAsync(u => u.UUID == userId, ct);
@@ -103,6 +117,7 @@ namespace GameServer.Controllers
         }
 
         [HttpPost("buy-skin")]
+        [Authorize]
         [ProducesResponseType(typeof(BuySkinResponse), 200)]
         public async Task<IActionResult> BuySkin(
             [FromBody] BuySkinRequest request,
@@ -116,6 +131,20 @@ namespace GameServer.Controllers
             {
                 return BadRequest(
                     new BuySkinResponse { Approved = false, Message = "Invalid userId or skinId." }
+                );
+            }
+
+            // Row-level authorization: ensure the JWT subject matches the request's userId
+            var tokenUserId = User.FindFirst("sub")?.Value;
+            if (tokenUserId == null || tokenUserId != request.UserId)
+            {
+                return StatusCode(
+                    403,
+                    new BuySkinResponse
+                    {
+                        Approved = false,
+                        Message = "Forbidden: cannot purchase for another user.",
+                    }
                 );
             }
 

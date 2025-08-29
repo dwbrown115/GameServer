@@ -112,6 +112,21 @@ Single entrypoint after socket upgrade performing:
 - Refresh Token: GUID (N format) stored plaintext (recommendation: hash for leakage resistance—see Improvements below).
 - Device Binding: Refresh tokens unique per (UserId, DeviceId) pair; rotation invalidates prior token.
 
+### Public vs Protected Endpoints
+Public (no JWT required):
+- GET /api/Leaderboard
+- GET /api/Shop/skins
+
+Protected (JWT required):
+- GET /api/Shop/user-assets/{userId}
+- POST /api/Shop/buy-skin
+- PATCH /player/update
+- POST /ws/auth (session establishment)
+- Any future write / mutation endpoints
+
+Row-Level Authorization:
+- For endpoints that include a `{userId}` route parameter or body field (e.g., `GET /api/Shop/user-assets/{userId}`, `POST /api/Shop/buy-skin`), the server now enforces that the JWT subject (`sub` claim) matches the targeted `userId`. Requests where the token's subject differs return `403 Forbidden` to prevent horizontal privilege escalation.
+
 ### Database Schemas
 Schemas used: `users`, `auth`, `gameplay`.
 Notable tables & columns (see migrations for full):
@@ -150,21 +165,21 @@ Player Ping:
 { "request_type": "player_ping", "attemptedClientScore": 10, ... }
 → { "session_id": "...", "status": "Ok", "serverScore": 10 }
 
-Leaderboard (HTTP):
+Leaderboard (HTTP, Public):
 GET /api/Leaderboard
 → 200 { response_type: "leaderboard_data_response", payload: [ { Username, PlayerHighestScore }, ... ] }
 
-Skins Catalog:
+Skins Catalog (Public):
 GET /api/Shop/skins
 → 200 { response_type: "skins_data_response", payload: [ { SkinId, HexValue, Price }, ... ] }
 
-Owned Skins & Points:
+Owned Skins & Points (Protected – JWT required):
 GET /api/Shop/user-assets/{userId}
 → 200 { response_type: "user_skins_points_response", UserId, Points, OwnedSkinIds: [] }
 
-Buy Skin:
+Buy Skin (Protected – JWT required):
 POST /api/Shop/buy-skin { userId, skinId }
-→ 200 { Approved, Message }
+→ 200 { Approved, Message, points_after_purchase?, owned_skin_ids? }
 
 ## Extension Points & Future Ideas
 - Add structured logging (ILogger) already partly used → centralize & add correlation IDs.
@@ -201,6 +216,7 @@ Gameplay Session: WebSocketAuthController → WebSocketService → DbContext (cr
 Player Data Update: PlayerController → PlayerService (validates refresh token) → DbContext.
 Leaderboard Fetch: LeaderboardController → LeaderboardService → DbContext → response DTO.
 Economy: ShopController (skins list / user assets / buy) → DbContext (Skins, UserData) → JSON arrays updated.
+Purchase Flow: On successful skin purchase server validates points ≥ price, snapshots pre-deduction into PointsLog, deducts price, appends skin UUID to OwnedSkins, returns updated points & owned skin IDs.
 Disconnect Awarding: WebSocketHandler disconnect path → DbContext (PlayerSessionLog, Leaderboard, UserData) → persistence of high score & point logs.
 
 ## Summary
