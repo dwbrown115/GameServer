@@ -171,15 +171,63 @@ namespace GameServer.Controllers
 
             if (userData.Points < skin.Price)
             {
-                return Ok(new BuySkinResponse { Approved = false, Message = "Not enough points." });
+                var ownedIdsForResponse = owned.Select(o => o.SkinId).ToList();
+                return Ok(
+                    new BuySkinResponse
+                    {
+                        Approved = false,
+                        Message = "You do not have enough points to buy this skin",
+                        PointsAfterPurchase = userData.Points,
+                        OwnedSkinIds = ownedIdsForResponse,
+                    }
+                );
             }
 
+            // Deduct price & log the points change in PointsLog
+            // Parse or init PointsLog
+            List<PointsLogEntry> pointsLog;
+            if (string.IsNullOrWhiteSpace(userData.PointsLog))
+            {
+                pointsLog = new List<PointsLogEntry>();
+            }
+            else
+            {
+                try
+                {
+                    pointsLog =
+                        JsonConvert.DeserializeObject<List<PointsLogEntry>>(userData.PointsLog!)
+                        ?? new List<PointsLogEntry>();
+                }
+                catch
+                {
+                    pointsLog = new List<PointsLogEntry>();
+                }
+            }
+            // Snapshot pre-deduction
+            pointsLog.Add(
+                new PointsLogEntry
+                {
+                    PointsAtTime = userData.Points,
+                    PointsAtTimestamp = DateTime.UtcNow,
+                }
+            );
             userData.Points -= skin.Price;
-            owned.Add(new SkinOwnershipEntry { SkinId = request.SkinId });
+            userData.PointsLog = JsonConvert.SerializeObject(pointsLog);
+
+            // Add skin UUID to owned skins array
+            owned.Add(new SkinOwnershipEntry { SkinId = skin.UUID });
             userData.OwnedSkins = JsonConvert.SerializeObject(owned);
             await _db.SaveChangesAsync(ct);
 
-            return Ok(new BuySkinResponse { Approved = true, Message = "Purchase successful." });
+            return Ok(
+                new BuySkinResponse
+                {
+                    Approved = true,
+                    Message = "Purchase successful.",
+                    PointsAfterPurchase = userData.Points,
+                    OwnedSkinIds = owned.Select(o => o.SkinId).ToList(),
+                }
+            );
         }
     }
 

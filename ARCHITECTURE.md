@@ -7,6 +7,9 @@ GameServer is an ASP.NET Core Web API + WebSocket server backed by Entity Framew
 - Authenticated WebSocket session establishment for realtime gameplay messaging (pings, spawn requests, object claims)
 - Server‑authoritative scoring, object lifecycle & player position logging for anti‑cheat / auditing
 - Extensible gameplay data model (leaderboards, user data, skins)
+- Economy & inventory (skins shop, points accumulation, purchase flow)
+- Historical logging of high scores & point progression
+- Administrative debug UI for ad‑hoc table CRUD & JSON field editing
 
 ## Solution Structure
 ```
@@ -66,9 +69,10 @@ Model configuration: owns `LastKnownPosition` (session) & `Coordinates` (object 
 - `RefreshTokenRecord` (auth schema) – Device-bound refresh token with expiry & revocation flag.
 - `PlayerSessionLog` (gameplay schema) – Extensive audit fields: object sync, scores, object/position logs (JSON strings), cooldown tracking, flags.
 - `ObjectLifecycleLog` – Spawn/claim timing & coordinates (also serialized into session JSON log).
-- `Leaderboard` – High score tracking per user.
-- `UserData` – Generic points store.
-- `Skins` – Cosmetic skin definitions (hex color values).
+- `Leaderboard` – High score tracking per user plus `HighScoreLog` (JSON array of `{ HighScoreAtTime, HighScoreAtTimestamp }`).
+- `UserData` – Points balance plus `OwnedSkins` (JSON array of `{ SkinId }`) and `PointsLog` (JSON array of `{ PointsAtTime, PointsAtTimestamp }`). Auto‑provisioned at registration & lazily when missing.
+- `Skins` – Cosmetic skin definitions (hex color values & price).
+- Log entry helper models: `HighScoreLogEntry`, `PointsLogEntry`.
 
 ### Requests (Selected)
 - `AuthenticationRequest` – Username/password/device combos
@@ -81,6 +85,7 @@ Model configuration: owns `LastKnownPosition` (session) & `Coordinates` (object 
 - Auth: `LoginResult`, `AuthenticationResponse`, `WebSocketAuthResponse`
 - Player: `PlayerResponse`, `PlayerChangeResponse`, `PlayerPingResponse`
 - Gameplay: `SpawnRequestResponse`, `ObjectClaimedResponse`
+- Leaderboard / Economy: `LeaderboardDataResponse`, `SkinsDataResponse`, `UserSkinsAndPointsResponse`, `BuySkinResponse`
 
 ### Services
 - `AuthenticationService` – Registration (ensures unique username), login (creates refresh record + JWT), logout (revokes refresh token).
@@ -88,6 +93,8 @@ Model configuration: owns `LastKnownPosition` (session) & `Coordinates` (object 
 - `PlayerService` – Retrieves player profile, validates session via refresh token, applies whitelisted username/password mutations, processes claimed objects (score server-side & tamper detection via duplicate IDs).
 - `WebSocketService` – Authenticates WebSocket handshake using `JwtService.ValidateOrRefreshAsync`, creates persistent `PlayerSessionLog` entry.
 - `WebSocketConnectionManager` – In-memory mapping of SessionId → WebSocket.
+- `LeaderboardService` – Provides ordered leaderboard data (HTTP GET endpoint).
+- `Shop` (within `ShopController`) – Skins catalog + purchase flow; also surfaces owned skins & points.
 
 ### WebSocket Handling (`WebSocketHandler`)
 Single entrypoint after socket upgrade performing:
@@ -97,6 +104,7 @@ Single entrypoint after socket upgrade performing:
   - `spawn_item_request`: Enforces spawn cooldown; if granted, generates object ID + random spawn position inside circle excluding inner radius; logs lifecycle & position.
   - `object_claimed_request`: Validates claim, sets claim timestamp, increments server score & logs score event; responds with status.
 - Flags anomalies (e.g., duplicate object claim leads to "Bad" status or review flag at service layer).
+- On socket disconnect: stamps session end, upserts leaderboard entry (always overwriting latest score), appends to `HighScoreLog`, upserts `UserData`, converts session score to awarded points, and appends a snapshot entry to `PointsLog`.
 
 ### Security & Auth Flow
 - Password hashing: PBKDF2 (Rfc2898DeriveBytes) with per-user salt (24 bytes, 10101 iterations, SHA256).
@@ -110,9 +118,9 @@ Notable tables & columns (see migrations for full):
 - `users.Users`: Id (PK), UUID, Username, PasswordHash, Salt, CreatedAt, UpdatedAt
 - `auth.RefreshTokenRecord`: Id, UserId, DeviceId, EncryptedRefreshToken, ExpiresAt, IsRevoked
 - `gameplay.PlayerSessionLog`: Rich telemetry (scores, spawn attempts, hashed sync fields, JSON logs, cooldown timestamps)
-- `gameplay.Leaderboard`: High score & timestamps
-- `gameplay.UserData`: Arbitrary points
-- `gameplay.Skins`: Cosmetic inventory
+- `gameplay.Leaderboard`: High score & timestamps + `HighScoreLog` JSON history
+- `gameplay.UserData`: Points + `OwnedSkins` JSON + `PointsLog` JSON snapshot history
+- `gameplay.Skins`: Cosmetic inventory (UUID, HexValue, Price)
 
 ### Anti-Cheat / Integrity Measures
 - Server-authoritative `ScoreServer` vs client attempts → status feedback in ping responses.
@@ -142,6 +150,22 @@ Player Ping:
 { "request_type": "player_ping", "attemptedClientScore": 10, ... }
 → { "session_id": "...", "status": "Ok", "serverScore": 10 }
 
+Leaderboard (HTTP):
+GET /api/Leaderboard
+→ 200 { response_type: "leaderboard_data_response", payload: [ { Username, PlayerHighestScore }, ... ] }
+
+Skins Catalog:
+GET /api/Shop/skins
+→ 200 { response_type: "skins_data_response", payload: [ { SkinId, HexValue, Price }, ... ] }
+
+Owned Skins & Points:
+GET /api/Shop/user-assets/{userId}
+→ 200 { response_type: "user_skins_points_response", UserId, Points, OwnedSkinIds: [] }
+
+Buy Skin:
+POST /api/Shop/buy-skin { userId, skinId }
+→ 200 { Approved, Message }
+
 ## Extension Points & Future Ideas
 - Add structured logging (ILogger) already partly used → centralize & add correlation IDs.
 - Replace plaintext refresh tokens with hashed values (store SHA-256 hash) for at-rest protection.
@@ -149,6 +173,9 @@ Player Ping:
 - Add SignalR for higher-level realtime abstractions (optional; current raw WebSockets fine for custom protocol).
 - Implement soft-ending & pruning of old `PlayerSessionLog` entries (scheduled background service).
 - Introduce leaderboard update service triggered on score changes.
+- Pagination & caching for large skins catalogs / leaderboard.
+- Enforce optimistic concurrency / row versioning on points & leaderboard updates.
+- Trim / archive `HighScoreLog` & `PointsLog` (size management strategy).
 - Add unit/integration tests (services & WebSocket message flows) + test factory for DbContext (InMemory/SQLite).
 - Add OpenAPI/Swagger for REST endpoints.
 - Encrypt sensitive user fields (e.g., future email) and implement password complexity rules.
@@ -160,6 +187,8 @@ Player Ping:
 - WebSocket message parsing uses manual switch; could adopt strongly-typed message envelope & dispatch registry.
 - JSON logs may grow large; consider offloading to append-only table or external telemetry store.
 - Missing indexes (e.g., Users.Username UNIQUE, RefreshTokenRecord (UserId, DeviceId)).
+- Leaderboard & user points updates currently not wrapped in explicit transactions beyond single SaveChanges; race conditions possible at scale.
+- No authorization gating for shop GET endpoints (public enumeration) – evaluate if intended.
 
 ## Quick Start (Development)
 1. Ensure local SQL Server accessible at configured `ConnectionStrings:Db`.
@@ -170,6 +199,9 @@ Player Ping:
 Auth: Controller → AuthenticationService/JwtService → DbContext → tokens
 Gameplay Session: WebSocketAuthController → WebSocketService → DbContext (creates session) → client opens raw socket → WebSocketHandler loops & dispatches → DbContext state updates → responses.
 Player Data Update: PlayerController → PlayerService (validates refresh token) → DbContext.
+Leaderboard Fetch: LeaderboardController → LeaderboardService → DbContext → response DTO.
+Economy: ShopController (skins list / user assets / buy) → DbContext (Skins, UserData) → JSON arrays updated.
+Disconnect Awarding: WebSocketHandler disconnect path → DbContext (PlayerSessionLog, Leaderboard, UserData) → persistence of high score & point logs.
 
 ## Summary
 This catalog documents the major constructs, flows, and considerations of the GameServer solution to speed onboarding, auditing, and future enhancement planning.
