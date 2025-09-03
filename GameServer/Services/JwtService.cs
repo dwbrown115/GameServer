@@ -231,12 +231,68 @@ public class JwtService : IJwtService
         //     "[JwtService] Current JWT is valid and does not need refresh. Returning existing tokens."
         // );
 
-        return new AuthenticationResponse
+        var authResponse = new AuthenticationResponse
         {
             UserId = userId,
             Token = token,
             RefreshToken = refreshToken,
             ExpiresAt = jwtToken.ValidTo, // Use the actual expiry from the token
         };
+
+        // Perform lightweight white skin backfill if needed (no blocking on absence of skin row)
+        try
+        {
+            var userData = await _context.UserDatas.FirstOrDefaultAsync(ud => ud.UserId == userId);
+            if (userData != null)
+            {
+                bool ownedEmpty =
+                    string.IsNullOrWhiteSpace(userData.OwnedSkins)
+                    || userData.OwnedSkins.Trim() == "[]";
+                bool activeBlankOrFallback =
+                    string.IsNullOrWhiteSpace(userData.ActiveSkin)
+                    || userData.ActiveSkin == "#FFFFFF";
+                if (ownedEmpty || activeBlankOrFallback)
+                {
+                    var whiteSkin = await _context.Skins.FirstOrDefaultAsync(s =>
+                        s.HexValue == "#FFFFFF"
+                    );
+                    if (whiteSkin != null)
+                    {
+                        List<TempOwnership> existingOwned = new();
+                        if (!string.IsNullOrWhiteSpace(userData.OwnedSkins))
+                        {
+                            try
+                            {
+                                existingOwned =
+                                    Newtonsoft.Json.JsonConvert.DeserializeObject<
+                                        List<TempOwnership>
+                                    >(userData.OwnedSkins!) ?? new List<TempOwnership>();
+                            }
+                            catch
+                            {
+                                existingOwned = new List<TempOwnership>();
+                            }
+                        }
+                        if (!existingOwned.Any(e => e.SkinId == whiteSkin.UUID))
+                        {
+                            existingOwned.Add(new TempOwnership { SkinId = whiteSkin.UUID });
+                            userData.OwnedSkins = Newtonsoft.Json.JsonConvert.SerializeObject(
+                                existingOwned
+                            );
+                        }
+                        if (activeBlankOrFallback)
+                        {
+                            userData.ActiveSkin = whiteSkin.UUID;
+                        }
+                        await _context.SaveChangesAsync();
+                    }
+                }
+            }
+        }
+        catch
+        { /* swallow backfill issues */
+        }
+
+        return authResponse;
     }
 }

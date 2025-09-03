@@ -74,12 +74,28 @@ namespace GameServer.Controllers
             var userData = await _db.UserDatas.FirstOrDefaultAsync(ud => ud.UserId == userId, ct);
             if (userData == null)
             {
-                // Provision empty user data (consistent with registration auto-provision)
+                // Provision user data and attempt to seed with white skin if available
+                var whiteSkin = await _db.Skins.FirstOrDefaultAsync(
+                    s => s.HexValue == "#FFFFFF",
+                    ct
+                );
+                var ownedSeed = new List<object>();
+                string activeSkin;
+                if (whiteSkin != null)
+                {
+                    ownedSeed.Add(new { SkinId = whiteSkin.UUID });
+                    activeSkin = whiteSkin.UUID;
+                }
+                else
+                {
+                    activeSkin = "#FFFFFF"; // fallback hex literal
+                }
                 userData = new UserData
                 {
                     UserId = userId,
                     Points = 0,
-                    OwnedSkins = JsonConvert.SerializeObject(new List<object>()),
+                    OwnedSkins = JsonConvert.SerializeObject(ownedSeed),
+                    ActiveSkin = activeSkin,
                 };
                 _db.UserDatas.Add(userData);
                 await _db.SaveChangesAsync(ct);
@@ -154,12 +170,28 @@ namespace GameServer.Controllers
             );
             if (userData == null)
             {
-                // Initialize user data with zero points & empty OwnedSkins if absent
+                // Initialize user data and auto-grant white skin if present
+                var whiteSkin = await _db.Skins.FirstOrDefaultAsync(
+                    s => s.HexValue == "#FFFFFF",
+                    ct
+                );
+                var ownedSeed = new List<object>();
+                string activeSkin;
+                if (whiteSkin != null)
+                {
+                    ownedSeed.Add(new { SkinId = whiteSkin.UUID });
+                    activeSkin = whiteSkin.UUID;
+                }
+                else
+                {
+                    activeSkin = "#FFFFFF";
+                }
                 userData = new UserData
                 {
                     UserId = request.UserId,
                     Points = 0,
-                    OwnedSkins = JsonConvert.SerializeObject(new List<object>()),
+                    OwnedSkins = JsonConvert.SerializeObject(ownedSeed),
+                    ActiveSkin = activeSkin,
                 };
                 _db.UserDatas.Add(userData);
                 await _db.SaveChangesAsync(ct);
@@ -255,6 +287,182 @@ namespace GameServer.Controllers
                     Message = "Purchase successful.",
                     PointsAfterPurchase = userData.Points,
                     OwnedSkinIds = owned.Select(o => o.SkinId).ToList(),
+                }
+            );
+        }
+
+        [HttpPost("set-active-skin")]
+        [Authorize]
+        [ProducesResponseType(typeof(ActiveSkinResponse), 200)]
+        public async Task<IActionResult> SetActiveSkin(
+            [FromBody] SetActiveSkinRequest request,
+            CancellationToken ct
+        )
+        {
+            if (
+                string.IsNullOrWhiteSpace(request.UserId)
+                || string.IsNullOrWhiteSpace(request.SkinId)
+            )
+            {
+                return BadRequest(
+                    new ActiveSkinResponse
+                    {
+                        Status = "Bad",
+                        Message = "Invalid userId or skinId",
+                        UserId = request.UserId,
+                        SkinId = request.SkinId,
+                    }
+                );
+            }
+            var tokenUserId = User.FindFirst("sub")?.Value;
+            if (tokenUserId == null || tokenUserId != request.UserId)
+            {
+                return StatusCode(
+                    403,
+                    new ActiveSkinResponse
+                    {
+                        Status = "Bad",
+                        Message = "Forbidden: cannot set another user's active skin.",
+                        UserId = request.UserId,
+                        SkinId = request.SkinId,
+                    }
+                );
+            }
+
+            var userData = await _db.UserDatas.FirstOrDefaultAsync(
+                u => u.UserId == request.UserId,
+                ct
+            );
+            if (userData == null)
+            {
+                return NotFound(
+                    new ActiveSkinResponse
+                    {
+                        Status = "Bad",
+                        Message = "User data not found",
+                        UserId = request.UserId,
+                        SkinId = request.SkinId,
+                    }
+                );
+            }
+
+            // Load owned skins
+            List<SkinOwnershipEntry> owned;
+            if (string.IsNullOrWhiteSpace(userData.OwnedSkins))
+            {
+                owned = new List<SkinOwnershipEntry>();
+            }
+            else
+            {
+                try
+                {
+                    owned =
+                        JsonConvert.DeserializeObject<List<SkinOwnershipEntry>>(
+                            userData.OwnedSkins!
+                        ) ?? new List<SkinOwnershipEntry>();
+                }
+                catch
+                {
+                    owned = new List<SkinOwnershipEntry>();
+                }
+            }
+
+            if (!owned.Any(o => o.SkinId == request.SkinId))
+            {
+                return Ok(
+                    new ActiveSkinResponse
+                    {
+                        Status = "Bad",
+                        Message = "Skin not owned",
+                        UserId = request.UserId,
+                        SkinId = request.SkinId,
+                    }
+                );
+            }
+
+            var skin = await _db.Skins.FirstOrDefaultAsync(s => s.UUID == request.SkinId, ct);
+            if (skin == null)
+            {
+                return Ok(
+                    new ActiveSkinResponse
+                    {
+                        Status = "Bad",
+                        Message = "Skin not found",
+                        UserId = request.UserId,
+                        SkinId = request.SkinId,
+                    }
+                );
+            }
+
+            userData.ActiveSkin = skin.UUID;
+            await _db.SaveChangesAsync(ct);
+
+            return Ok(
+                new ActiveSkinResponse
+                {
+                    Status = "Ok",
+                    Message = "Active skin set",
+                    UserId = request.UserId,
+                    SkinId = skin.UUID,
+                    HexValue = skin.HexValue,
+                }
+            );
+        }
+
+        [HttpGet("active-skin/{userId}")]
+        [Authorize]
+        [ProducesResponseType(typeof(ActiveSkinResponse), 200)]
+        public async Task<IActionResult> GetActiveSkin(
+            [FromRoute] string userId,
+            CancellationToken ct
+        )
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return BadRequest(
+                    new ActiveSkinResponse { Status = "Bad", Message = "Invalid userId" }
+                );
+            }
+
+            var tokenUserId = User.FindFirst("sub")?.Value;
+            if (tokenUserId == null || tokenUserId != userId)
+            {
+                return StatusCode(
+                    403,
+                    new ActiveSkinResponse
+                    {
+                        Status = "Bad",
+                        Message = "Forbidden: cannot view another user's active skin.",
+                    }
+                );
+            }
+
+            var userData = await _db.UserDatas.FirstOrDefaultAsync(u => u.UserId == userId, ct);
+            if (userData == null)
+            {
+                return NotFound(
+                    new ActiveSkinResponse { Status = "Bad", Message = "User data not found" }
+                );
+            }
+
+            string? skinId = userData.ActiveSkin;
+            string hex = "#FFFFFF"; // default white
+            if (!string.IsNullOrWhiteSpace(skinId) && skinId != "#FFFFFF")
+            {
+                var skin = await _db.Skins.FirstOrDefaultAsync(s => s.UUID == skinId, ct);
+                if (skin != null)
+                {
+                    hex = skin.HexValue;
+                }
+            }
+
+            return Ok(
+                new ActiveSkinResponse
+                {
+                    Status = "Ok",
+                    UserId = userId,
+                    SkinId = skinId ?? "#FFFFFF",
+                    HexValue = hex,
                 }
             );
         }

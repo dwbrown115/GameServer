@@ -45,12 +45,21 @@ public class AuthenticationService : IAuthenticationService
         // Automatically provision a gameplay.UserData row if one does not already exist for this user (should not in normal registration path)
         if (!_context.UserDatas.Any(ud => ud.UserId == user.UUID))
         {
+            // Attempt to auto-grant the white skin (hex #FFFFFF) if it exists
+            string whiteSkinHex = "#FFFFFF";
+            var whiteSkin = _context.Skins.FirstOrDefault(s => s.HexValue == whiteSkinHex);
+            var ownedList = new List<object>();
+            if (whiteSkin != null)
+            {
+                ownedList.Add(new { SkinId = whiteSkin.UUID });
+            }
             var userData = new UserData
             {
                 UserId = user.UUID,
                 Points = 0,
-                OwnedSkins = Newtonsoft.Json.JsonConvert.SerializeObject(new List<object>()), // empty JSON array
-                PointsLog = Newtonsoft.Json.JsonConvert.SerializeObject(new List<PointsLogEntry>()), // empty JSON array
+                OwnedSkins = Newtonsoft.Json.JsonConvert.SerializeObject(ownedList),
+                PointsLog = Newtonsoft.Json.JsonConvert.SerializeObject(new List<PointsLogEntry>()),
+                ActiveSkin = whiteSkin != null ? whiteSkin.UUID : "#FFFFFF", // prefer actual skin uuid if present
             };
             _context.UserDatas.Add(userData);
         }
@@ -70,6 +79,79 @@ public class AuthenticationService : IAuthenticationService
         )
         {
             return null;
+        }
+
+        // Ensure UserData exists (should normally from registration) & perform white skin backfill if needed.
+        var userData = await _context.UserDatas.FirstOrDefaultAsync(ud => ud.UserId == user.UUID);
+        if (userData == null)
+        {
+            // Mirror registration provisioning (white skin seeding attempted)
+            string whiteSkinHex = "#FFFFFF";
+            var whiteSkin = await _context.Skins.FirstOrDefaultAsync(s =>
+                s.HexValue == whiteSkinHex
+            );
+            var ownedList = new List<object>();
+            string activeSkinValue = whiteSkinHex;
+            if (whiteSkin != null)
+            {
+                ownedList.Add(new { SkinId = whiteSkin.UUID });
+                activeSkinValue = whiteSkin.UUID;
+            }
+            userData = new SharedLibrary.Models.UserData
+            {
+                UserId = user.UUID,
+                Points = 0,
+                OwnedSkins = Newtonsoft.Json.JsonConvert.SerializeObject(ownedList),
+                PointsLog = Newtonsoft.Json.JsonConvert.SerializeObject(new List<PointsLogEntry>()),
+                ActiveSkin = activeSkinValue,
+            };
+            _context.UserDatas.Add(userData);
+            await _context.SaveChangesAsync();
+        }
+        else
+        {
+            bool ownedEmpty =
+                string.IsNullOrWhiteSpace(userData.OwnedSkins)
+                || userData.OwnedSkins.Trim() == "[]";
+            bool activeBlankOrFallback =
+                string.IsNullOrWhiteSpace(userData.ActiveSkin) || userData.ActiveSkin == "#FFFFFF";
+            if (ownedEmpty || activeBlankOrFallback)
+            {
+                var whiteSkin = await _context.Skins.FirstOrDefaultAsync(s =>
+                    s.HexValue == "#FFFFFF"
+                );
+                if (whiteSkin != null)
+                {
+                    // Deserialize existing list (if any) to avoid wiping other skins
+                    List<TempOwnership> existingOwned = new();
+                    if (!string.IsNullOrWhiteSpace(userData.OwnedSkins))
+                    {
+                        try
+                        {
+                            existingOwned =
+                                Newtonsoft.Json.JsonConvert.DeserializeObject<List<TempOwnership>>(
+                                    userData.OwnedSkins!
+                                ) ?? new List<TempOwnership>();
+                        }
+                        catch
+                        {
+                            existingOwned = new List<TempOwnership>();
+                        }
+                    }
+                    if (!existingOwned.Any(e => e.SkinId == whiteSkin.UUID))
+                    {
+                        existingOwned.Add(new TempOwnership { SkinId = whiteSkin.UUID });
+                        userData.OwnedSkins = Newtonsoft.Json.JsonConvert.SerializeObject(
+                            existingOwned
+                        );
+                    }
+                    if (activeBlankOrFallback)
+                    {
+                        userData.ActiveSkin = whiteSkin.UUID;
+                    }
+                    await _context.SaveChangesAsync();
+                }
+            }
         }
 
         var tokenRecord = await _jwtService.GenerateAndStoreJwtAsync(user.UUID, request.DeviceId);
@@ -124,6 +206,11 @@ public class AuthenticationService : IAuthenticationService
             }
         );
     }
+}
+
+public class TempOwnership
+{
+    public string SkinId { get; set; } = string.Empty;
 }
 
 public interface IAuthenticationService

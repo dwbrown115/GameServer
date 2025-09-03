@@ -20,5 +20,9 @@ namespace SharedLibrary.Models
 
         // JSON (string) representing an array of objects: { PointsAtTime: int, PointsAtTimestamp: DateTime }
         public string? PointsLog { get; set; }
+
+        // The currently selected / active skin (stores Skin UUID). Defaults to a 'white' skin value placeholder until user selects.
+        [MaxLength(100)]
+        public string? ActiveSkin { get; set; }
     }
 }

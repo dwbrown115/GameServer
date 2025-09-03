@@ -729,9 +729,9 @@ public class WebSocketHandler : IWebSocketHandler
                     var userData = await dbContext.UserDatas.FirstOrDefaultAsync(u =>
                         u.UserId == userId
                     );
+                    // UserData creation & white skin seeding now handled during login/token validation.
                     if (userData == null)
                     {
-                        // Validate user exists in users.Users
                         var userExists = await dbContext.Users.AnyAsync(u => u.UUID == userId);
                         if (!userExists)
                         {
@@ -748,11 +748,12 @@ public class WebSocketHandler : IWebSocketHandler
                                 Points = 0,
                                 OwnedSkins = JsonConvert.SerializeObject(new List<object>()),
                                 PointsLog = JsonConvert.SerializeObject(new List<PointsLogEntry>()),
+                                ActiveSkin = "#FFFFFF",
                             };
                             await dbContext.UserDatas.AddAsync(userData);
                             await dbContext.SaveChangesAsync();
                             _logger.LogInformation(
-                                "Initialized UserData for UserId {UserId}",
+                                "Initialized bare UserData for UserId {UserId}",
                                 userId
                             );
                         }

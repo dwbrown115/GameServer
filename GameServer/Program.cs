@@ -41,6 +41,7 @@ builder.Services.AddScoped<IWebSocketService, WebSocketService>();
 builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
 builder.Services.AddSingleton<IWebSocketConnectionManager, WebSocketConnectionManager>();
 builder.Services.AddSingleton<IWebSocketHandler, WebSocketHandler>();
+builder.Services.AddHostedService<WhiteSkinBackfillService>();
 
 builder
     .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

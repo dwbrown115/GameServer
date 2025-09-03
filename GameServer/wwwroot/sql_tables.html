@@ -281,6 +281,13 @@
             createRowMessage.textContent='Creating row...';
             createRowMessage.style.color='';
             try {
+                // If there are unsaved edits (dirty cells), auto-save them first to avoid losing changes on refresh
+                const hasDirty = tableDataDisplay.querySelector('.dirty-cell');
+                if(hasDirty){
+                    createRowMessage.textContent = 'Saving pending edits before creating new row...';
+                    await saveAllRows();
+                    createRowMessage.textContent = 'Creating row...';
+                }
                 // Fetch column metadata to build an empty row structure
                 const colResp = await fetch(`${API_BASE_URL}/api/Debug/table-columns/${encodeURIComponent(selectedTable)}`, { headers: { 'Authorization': `Bearer ${jwtToken}` }});
                 if(!colResp.ok){ createRowMessage.textContent='Failed to get columns.'; createRowMessage.style.color='#b30000'; return; }
@@ -294,9 +301,9 @@
                 });
                 if(!resp.ok){ const t = await resp.text(); createRowMessage.textContent = 'Create failed: ' + (t||resp.statusText); createRowMessage.style.color='#b30000'; return; }
                 const result = await resp.json();
-                createRowMessage.textContent = 'Row created (ID: ' + result.id + '). Refreshing...';
+                createRowMessage.textContent = 'Row created (ID: ' + result.id + ').';
                 createRowMessage.style.color = '#155724';
-                // Reload table data to show new row (could optimize by appending)
+                // Reload table data to show new row (preserves saved edits from earlier auto-save)
                 await displayTableData();
             } catch(err){ createRowMessage.textContent='Error creating row.'; createRowMessage.style.color='#b30000'; }
         }
@@ -342,7 +349,7 @@
             }
         }
 
-        async function saveAllRows(){
+    async function saveAllRows(){
             if(!currentColumns){ showMessage(exportMessage, 'No table loaded.', 'error'); return; }
             const tableName = tableSelect.value;
             if(!tableName){ showMessage(exportMessage, 'No table selected.', 'error'); return; }
