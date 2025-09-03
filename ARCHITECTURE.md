@@ -54,6 +54,7 @@ GameServer.sln
 - `JwtSecret` (required)
 - `SpawnCooldownSeconds` – minimum delay between successful spawns
 - `NoSpawnRadius` – inner exclusion radius inside the requested spawn circle
+- `RunWhiteSkinBackfill` – when true, runs a one-time startup backfill to ensure existing `UserData` rows own the canonical white skin and have `ActiveSkin` set to its UUID (if present)
 
 ### Data Access (`GameDbContext`)
 DbSets:
@@ -70,7 +71,8 @@ Model configuration: owns `LastKnownPosition` (session) & `Coordinates` (object 
 - `PlayerSessionLog` (gameplay schema) – Extensive audit fields: object sync, scores, object/position logs (JSON strings), cooldown tracking, flags.
 - `ObjectLifecycleLog` – Spawn/claim timing & coordinates (also serialized into session JSON log).
 - `Leaderboard` – High score tracking per user plus `HighScoreLog` (JSON array of `{ HighScoreAtTime, HighScoreAtTimestamp }`).
-- `UserData` – Points balance plus `OwnedSkins` (JSON array of `{ SkinId }`) and `PointsLog` (JSON array of `{ PointsAtTime, PointsAtTimestamp }`). Auto‑provisioned at registration & lazily when missing.
+- `UserData` – Points balance plus `OwnedSkins` (JSON array of `{ SkinId }`), `PointsLog` (JSON array of `{ PointsAtTime, PointsAtTimestamp }`), and `ActiveSkin` (current skin UUID or placeholder `WHITE` → `#FFFFFF`). Auto‑provisioned at registration & lazily when missing.
+  - Backfill: If `RunWhiteSkinBackfill` is enabled, a hosted service (`WhiteSkinBackfillService`) runs at startup to retroactively add the white skin ownership & update `ActiveSkin` for legacy rows.
 - `Skins` – Cosmetic skin definitions (hex color values & price).
 - Log entry helper models: `HighScoreLogEntry`, `PointsLogEntry`.
 
@@ -94,6 +96,7 @@ Model configuration: owns `LastKnownPosition` (session) & `Coordinates` (object 
 - `WebSocketService` – Authenticates WebSocket handshake using `JwtService.ValidateOrRefreshAsync`, creates persistent `PlayerSessionLog` entry.
 - `WebSocketConnectionManager` – In-memory mapping of SessionId → WebSocket.
 - `LeaderboardService` – Provides ordered leaderboard data (HTTP GET endpoint).
+- `WhiteSkinBackfillService` – Optional one-time startup job (gated by `Settings.RunWhiteSkinBackfill`) that ensures historical `UserData` rows own the white (#FFFFFF) skin and promotes its UUID to `ActiveSkin` when they only had the fallback literal.
 - `Shop` (within `ShopController`) – Skins catalog + purchase flow; also surfaces owned skins & points.
 
 ### WebSocket Handling (`WebSocketHandler`)
@@ -120,6 +123,8 @@ Public (no JWT required):
 Protected (JWT required):
 - GET /api/Shop/user-assets/{userId}
 - POST /api/Shop/buy-skin
+ - POST /api/Shop/set-active-skin
+ - GET /api/Shop/active-skin/{userId}
 - PATCH /player/update
 - POST /ws/auth (session establishment)
 - Any future write / mutation endpoints
@@ -134,7 +139,7 @@ Notable tables & columns (see migrations for full):
 - `auth.RefreshTokenRecord`: Id, UserId, DeviceId, EncryptedRefreshToken, ExpiresAt, IsRevoked
 - `gameplay.PlayerSessionLog`: Rich telemetry (scores, spawn attempts, hashed sync fields, JSON logs, cooldown timestamps)
 - `gameplay.Leaderboard`: High score & timestamps + `HighScoreLog` JSON history
-- `gameplay.UserData`: Points + `OwnedSkins` JSON + `PointsLog` JSON snapshot history
+- `gameplay.UserData`: Points + `OwnedSkins` JSON + `PointsLog` JSON snapshot history + `ActiveSkin` (string skin UUID / `WHITE`).
 - `gameplay.Skins`: Cosmetic inventory (UUID, HexValue, Price)
 
 ### Anti-Cheat / Integrity Measures
@@ -180,6 +185,14 @@ GET /api/Shop/user-assets/{userId}
 Buy Skin (Protected – JWT required):
 POST /api/Shop/buy-skin { userId, skinId }
 → 200 { Approved, Message, points_after_purchase?, owned_skin_ids? }
+
+Set Active Skin (Protected – ownership required):
+POST /api/Shop/set-active-skin { userId, skinId }
+→ 200 { response_type: "active_skin_response", userId, skinId, hexValue?, status: "Ok"|"Bad", message? }
+
+Get Active Skin (Protected):
+GET /api/Shop/active-skin/{userId}
+→ 200 { response_type: "active_skin_response", userId, skinId, hexValue, status: "Ok" }
 
 ## Extension Points & Future Ideas
 - Add structured logging (ILogger) already partly used → centralize & add correlation IDs.
