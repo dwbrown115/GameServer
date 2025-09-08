@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net.WebSockets;
 using System.Text;
 using GameServer;
@@ -21,6 +22,8 @@ if (settings == null)
 builder.Services.AddSingleton(settings);
 
 // Add services to the container.
+// Preserve original JWT claim types (do not remap 'sub' to nameidentifier)
+JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
 builder.Services.AddDbContext<GameDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("Db"))
 );
@@ -55,7 +58,12 @@ builder
             ValidateIssuerSigningKey = true,
             ValidateAudience = false,
             ValidateIssuer = false,
+            // Enable lifetime validation so expired tokens produce clear failures.
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30), // keep skew tight for debugging
         };
+
+        // Verbose JWT diagnostic events removed after debugging success.
     });
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
@@ -78,6 +86,9 @@ if (app.Environment.IsDevelopment()) { }
 app.UseStaticFiles(); // Add this line
 app.UseHttpsRedirection();
 app.UseWebSockets();
+
+// Temporary auth header probe middleware removed.
+
 app.UseAuthentication();
 app.UseAuthorization();
 

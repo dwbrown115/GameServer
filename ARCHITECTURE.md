@@ -120,11 +120,12 @@ Public (no JWT required):
 - GET /api/Leaderboard
 - GET /api/Shop/skins
 
-Protected (JWT required):
-- GET /api/Shop/user-assets/{userId}
-- POST /api/Shop/buy-skin
- - POST /api/Shop/set-active-skin
+- Protected (JWT required):
+ - GET /api/Shop/user-assets/{userId}
+ - POST /api/Shop/buy-skin
+ - PUT /api/Shop/active-skin (set active skin; idempotent)
  - GET /api/Shop/active-skin/{userId}
+ - GET /api/Shop/active-skin (current authenticated user's active skin without specifying userId)
 - PATCH /player/update
 - POST /ws/auth (session establishment)
 - Any future write / mutation endpoints
@@ -187,7 +188,7 @@ POST /api/Shop/buy-skin { userId, skinId }
 → 200 { Approved, Message, points_after_purchase?, owned_skin_ids? }
 
 Set Active Skin (Protected – ownership required):
-POST /api/Shop/set-active-skin { userId, skinId }
+PUT /api/Shop/active-skin { userId, skinId }
 → 200 { response_type: "active_skin_response", userId, skinId, hexValue?, status: "Ok"|"Bad", message? }
 
 Get Active Skin (Protected):

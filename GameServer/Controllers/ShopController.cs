@@ -1,4 +1,5 @@
 using GameServer.Models;
+using GameServer.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -56,7 +57,7 @@ namespace GameServer.Controllers
             }
 
             // Enforce row-level security: only the authenticated user can access their own assets
-            var tokenUserId = User.FindFirst("sub")?.Value;
+            var tokenUserId = User.GetUserId();
             if (tokenUserId == null || tokenUserId != userId)
             {
                 return StatusCode(
@@ -151,7 +152,7 @@ namespace GameServer.Controllers
             }
 
             // Row-level authorization: ensure the JWT subject matches the request's userId
-            var tokenUserId = User.FindFirst("sub")?.Value;
+            var tokenUserId = User.GetUserId();
             if (tokenUserId == null || tokenUserId != request.UserId)
             {
                 return StatusCode(
@@ -291,7 +292,8 @@ namespace GameServer.Controllers
             );
         }
 
-        [HttpPost("set-active-skin")]
+        // Canonical route (idempotent field update)
+        [HttpPut("active-skin")]
         [Authorize]
         [ProducesResponseType(typeof(ActiveSkinResponse), 200)]
         public async Task<IActionResult> SetActiveSkin(
@@ -314,7 +316,7 @@ namespace GameServer.Controllers
                     }
                 );
             }
-            var tokenUserId = User.FindFirst("sub")?.Value;
+            var tokenUserId = User.GetUserId();
             if (tokenUserId == null || tokenUserId != request.UserId)
             {
                 return StatusCode(
@@ -424,7 +426,7 @@ namespace GameServer.Controllers
                 );
             }
 
-            var tokenUserId = User.FindFirst("sub")?.Value;
+            var tokenUserId = User.GetUserId();
             if (tokenUserId == null || tokenUserId != userId)
             {
                 return StatusCode(
@@ -461,6 +463,54 @@ namespace GameServer.Controllers
                 {
                     Status = "Ok",
                     UserId = userId,
+                    SkinId = skinId ?? "#FFFFFF",
+                    HexValue = hex,
+                }
+            );
+        }
+
+        // Convenience endpoint that derives userId from JWT subject to avoid 403s caused by mismatched path params
+        [HttpGet("active-skin")]
+        [Authorize]
+        [ProducesResponseType(typeof(ActiveSkinResponse), 200)]
+        public async Task<IActionResult> GetOwnActiveSkin(CancellationToken ct)
+        {
+            var tokenUserId = User.GetUserId();
+            if (string.IsNullOrWhiteSpace(tokenUserId))
+            {
+                return StatusCode(
+                    401,
+                    new ActiveSkinResponse { Status = "Bad", Message = "Missing subject claim" }
+                );
+            }
+
+            var userData = await _db.UserDatas.FirstOrDefaultAsync(
+                u => u.UserId == tokenUserId,
+                ct
+            );
+            if (userData == null)
+            {
+                return NotFound(
+                    new ActiveSkinResponse { Status = "Bad", Message = "User data not found" }
+                );
+            }
+
+            string? skinId = userData.ActiveSkin;
+            string hex = "#FFFFFF";
+            if (!string.IsNullOrWhiteSpace(skinId) && skinId != "#FFFFFF")
+            {
+                var skin = await _db.Skins.FirstOrDefaultAsync(s => s.UUID == skinId, ct);
+                if (skin != null)
+                {
+                    hex = skin.HexValue;
+                }
+            }
+
+            return Ok(
+                new ActiveSkinResponse
+                {
+                    Status = "Ok",
+                    UserId = tokenUserId,
                     SkinId = skinId ?? "#FFFFFF",
                     HexValue = hex,
                 }

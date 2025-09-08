@@ -1,9 +1,9 @@
+using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using SharedLibrary.Models;
 using SharedLibrary.Requests;
 using SharedLibrary.Responses;
-using Newtonsoft.Json;
-using System.Collections.Generic;
 
 namespace GameServer.Services;
 
@@ -154,23 +154,25 @@ public class PlayerService : IPlayerService
 
     public async Task<ObjectClaimedResponse> ObjectClaimedAsync(ObjectClaimedRequest request)
     {
-        var sessionLog = await _context.PlayerSessionLogs.FirstOrDefaultAsync(s => s.SessionId == request.SessionId);
+        var sessionLog = await _context.PlayerSessionLogs.FirstOrDefaultAsync(s =>
+            s.SessionId == request.SessionId
+        );
 
         if (sessionLog == null)
         {
-            return new ObjectClaimedResponse 
-            { 
+            return new ObjectClaimedResponse
+            {
                 SessionId = request.SessionId ?? "Unknown",
-                Status = "Bad" 
+                Status = "Bad",
             };
         }
 
         // Server-side score is the source of truth
         sessionLog.ScoreServer++;
 
-        var scoreLogList = !string.IsNullOrEmpty(sessionLog.ScoreLog) ? 
-            JsonConvert.DeserializeObject<List<ScoreLogEntry>>(sessionLog.ScoreLog) : 
-            new List<ScoreLogEntry>();
+        var scoreLogList = !string.IsNullOrEmpty(sessionLog.ScoreLog)
+            ? JsonConvert.DeserializeObject<List<ScoreLogEntry>>(sessionLog.ScoreLog)
+            : new List<ScoreLogEntry>();
 
         // Check for duplicate object IDs
         if (scoreLogList.Any(entry => entry.ObjectId == request.Id))
@@ -178,22 +180,20 @@ public class PlayerService : IPlayerService
             sessionLog.FlaggedForReview = true;
         }
 
-        scoreLogList.Add(new ScoreLogEntry
-        {
-            ServerScore = sessionLog.ScoreServer,
-            ObjectId = request.Id,
-            PlayerId = sessionLog.PlayerId,
-            Timestamp = DateTime.UtcNow
-        });
+        scoreLogList.Add(
+            new ScoreLogEntry
+            {
+                ServerScore = sessionLog.ScoreServer,
+                ObjectId = request.Id,
+                PlayerId = sessionLog.PlayerId,
+                Timestamp = DateTime.UtcNow,
+            }
+        );
 
         sessionLog.ScoreLog = JsonConvert.SerializeObject(scoreLogList);
 
         await _context.SaveChangesAsync();
 
-        return new ObjectClaimedResponse
-        {
-            SessionId = sessionLog.SessionId,
-            Status = "Ok"
-        };
+        return new ObjectClaimedResponse { SessionId = sessionLog.SessionId, Status = "Ok" };
     }
 }
