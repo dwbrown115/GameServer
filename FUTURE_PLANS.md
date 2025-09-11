@@ -112,6 +112,50 @@ Server JWT contents: keep `sub = userId` as today. No changes required to existi
 - Provider account change/merge → subject stability guaranteed by providers; handle support flow if mismatch ever occurs.
 - Attempted takeover: linking endpoint must require active session and validate provider token freshly.
 
+## Image Storage & Access — Outline
+
+### Goals
+- Allow the server to store and serve images (e.g., skin thumbnails, user avatars, promotional banners).
+- Support secure upload, retrieval, and deletion via authenticated endpoints.
+- Enable referencing images from game assets, user profiles, and shop items.
+
+### Storage Options
+- Local Filesystem: Store images in a dedicated folder (e.g., `wwwroot/images/`). Simple, fast for small scale, but not horizontally scalable.
+- Cloud Storage: Use a provider (e.g., AWS S3, Azure Blob Storage, Google Cloud Storage) for scalable, durable storage. Requires SDK integration and credentials.
+- Database (Blob): Store images as binary blobs in SQL. Easy for small images, but less efficient for large files or high throughput.
+
+### API Surface (proposed)
+- POST `/api/images/upload` — Authenticated upload (multipart/form-data or base64 JSON). Returns image ID or URL.
+- GET `/api/images/{imageId}` — Public or protected retrieval (optionally with resizing/cropping query params).
+- DELETE `/api/images/{imageId}` — Authenticated deletion (admin or owner only).
+- GET `/api/Shop/skins` — Include image URLs for skin thumbnails.
+- GET `/api/Player/avatar/{userId}` — Serve user profile images.
+
+### Data Model
+- New table: `gameplay.Images`
+  - `Id` (PK, GUID), `OwnerId?`, `Type` (skin/avatar/banner), `Url` (or path), `CreatedAt`, `DeletedAt?`, `Metadata` (JSON: dimensions, format, etc.)
+- Reference image IDs/URLs from `Skins`, `UserData`, etc.
+
+### Security & Validation
+- Enforce file type/size limits (e.g., JPEG/PNG only, max 2MB).
+- Virus scan on upload (optional, for public uploads).
+- Require JWT for upload/delete; optionally allow public GET for shop assets.
+- Store images with randomized filenames/IDs to prevent enumeration.
+- Optionally sign URLs for time-limited access (cloud storage).
+
+### Migration Steps
+1. Decide on storage backend (local vs cloud vs DB).
+2. Add `Images` table and update models to reference image IDs/URLs.
+3. Implement upload/retrieve/delete endpoints with validation and auth.
+4. Update shop/skin endpoints to include image URLs.
+5. Add admin tools for bulk import and cleanup.
+
+### Future Enhancements
+- On-the-fly resizing/cropping (e.g., via query params or CDN).
+- Image moderation (flagging, review queue).
+- CDN integration for faster global delivery.
+- User-uploaded avatars with profile update endpoint.
+
 ---
 
 ## Extension Points & Future Ideas
