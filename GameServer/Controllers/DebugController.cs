@@ -42,12 +42,9 @@ namespace GameServer.Controllers
                         .ToList();
 
                     // Filter out EF Core migration history table if present
-                    if (names != null)
-                    {
-                        names = names
-                            .Where(name => !name.Contains("__EFMigrationsHistory"))
-                            .ToList();
-                    }
+                    names = names
+                        .Where(name => name != null && !name.Contains("__EFMigrationsHistory"))
+                        .ToList();
 
                     return names;
                 });
@@ -114,7 +111,8 @@ namespace GameServer.Controllers
                             var row = new Dictionary<string, object>();
                             for (int i = 0; i < reader.FieldCount; i++)
                             {
-                                row[columnNames[i]] = reader.GetValue(i);
+                                var val = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                                row[columnNames[i]] = val!;
                             }
                             data.Add(row);
                         }

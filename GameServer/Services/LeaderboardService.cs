@@ -1,6 +1,6 @@
 using GameServer.Models;
 using Microsoft.EntityFrameworkCore;
-using SharedLibrary.Responses;
+using SharedLibrary.Modules.AgarSurvivor.Responses;
 
 namespace GameServer.Services
 {

@@ -13,6 +13,8 @@
     </ItemGroup>
 
 <!--    <Target Name="CopySharedLibraryWindows" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('Windows'))">-->
+
+        
 <!--        <MakeDir Directories="C:\Users\DakotaBrown\Documents\Unity\GameServerTestGame\Assets\DLLs"/>-->
 <!--        <Copy SourceFiles="$(TargetPath)" DestinationFiles="C:\Users\DakotaBrown\Documents\Unity\GameServerTestGame\Assets\DLLs\SharedLibrary.dll"/>-->
 <!--    </Target>-->

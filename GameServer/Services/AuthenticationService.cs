@@ -58,7 +58,9 @@ public class AuthenticationService : IAuthenticationService
                 UserId = user.UUID,
                 Points = 0,
                 OwnedSkins = Newtonsoft.Json.JsonConvert.SerializeObject(ownedList),
-                PointsLog = Newtonsoft.Json.JsonConvert.SerializeObject(new List<PointsLogEntry>()),
+                PointsLog = Newtonsoft.Json.JsonConvert.SerializeObject(
+                    new List<SharedLibrary.Modules.AgarSurvivor.Models.PointsLogEntry>()
+                ),
                 ActiveSkin = whiteSkin != null ? whiteSkin.UUID : "#FFFFFF", // prefer actual skin uuid if present
             };
             _context.UserDatas.Add(userData);
@@ -102,7 +104,9 @@ public class AuthenticationService : IAuthenticationService
                 UserId = user.UUID,
                 Points = 0,
                 OwnedSkins = Newtonsoft.Json.JsonConvert.SerializeObject(ownedList),
-                PointsLog = Newtonsoft.Json.JsonConvert.SerializeObject(new List<PointsLogEntry>()),
+                PointsLog = Newtonsoft.Json.JsonConvert.SerializeObject(
+                    new List<SharedLibrary.Modules.AgarSurvivor.Models.PointsLogEntry>()
+                ),
                 ActiveSkin = activeSkinValue,
             };
             _context.UserDatas.Add(userData);

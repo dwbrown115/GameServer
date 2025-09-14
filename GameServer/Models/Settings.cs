@@ -9,4 +9,7 @@ public class Settings
 
     // When true, a one-time startup hosted service will backfill the white skin ownership & active skin UUID for existing users.
     public bool? RunWhiteSkinBackfill { get; set; }
+
+    // Future: choose which game module is active
+    public string? ActiveGameModule { get; set; }
 }

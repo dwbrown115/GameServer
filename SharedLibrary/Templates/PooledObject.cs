@@ -1,4 +1,4 @@
-using SharedLibrary.Responses;
+using SharedLibrary.Common;
 
 namespace SharedLibrary.Templates;
 

@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
-using SharedLibrary.Models;
-using SharedLibrary.Requests;
-using SharedLibrary.Responses;
+using SharedLibrary.Modules.AgarSurvivor.Models;
+using SharedLibrary.Modules.AgarSurvivor.Requests;
+using SharedLibrary.Modules.AgarSurvivor.Responses;
 
 namespace GameServer.Services;
 
@@ -97,7 +97,7 @@ public class PlayerService : IPlayerService
     /// Safely validates and applies whitelisted property changes to a User entity using a strongly-typed payload.
     /// </summary>
     private async Task<(bool IsValid, string ErrorMessage)> ValidateAndApplyChangesAsync(
-        User user,
+        SharedLibrary.Models.User user,
         PlayerChangesPayload changes
     )
     {
@@ -170,9 +170,12 @@ public class PlayerService : IPlayerService
         // Server-side score is the source of truth
         sessionLog.ScoreServer++;
 
-        var scoreLogList = !string.IsNullOrEmpty(sessionLog.ScoreLog)
-            ? JsonConvert.DeserializeObject<List<ScoreLogEntry>>(sessionLog.ScoreLog)
-            : new List<ScoreLogEntry>();
+        var scoreLogList =
+            (
+                !string.IsNullOrEmpty(sessionLog.ScoreLog)
+                    ? JsonConvert.DeserializeObject<List<ScoreLogEntry>>(sessionLog.ScoreLog)
+                    : null
+            ) ?? new List<ScoreLogEntry>();
 
         // Check for duplicate object IDs
         if (scoreLogList.Any(entry => entry.ObjectId == request.Id))

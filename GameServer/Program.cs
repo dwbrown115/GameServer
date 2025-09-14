@@ -2,6 +2,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net.WebSockets;
 using System.Text;
 using GameServer;
+using GameServer.GameModules.Abstractions;
+using GameServer.GameModules.AgarSurvivor;
 using GameServer.Handlers;
 using GameServer.Models;
 using GameServer.Services;
@@ -45,6 +47,16 @@ builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
 builder.Services.AddSingleton<IWebSocketConnectionManager, WebSocketConnectionManager>();
 builder.Services.AddSingleton<IWebSocketHandler, WebSocketHandler>();
 builder.Services.AddHostedService<WhiteSkinBackfillService>();
+
+// Game Module selection by Settings.ActiveGameModule
+IGameModule module = settings.ActiveGameModule?.ToLowerInvariant() switch
+{
+    "agarsurvivor" => new AgarSurvivorModule(),
+    // Add more modules here as you create them
+    _ => new AgarSurvivorModule(),
+};
+module.AddServices(builder.Services);
+builder.Services.AddSingleton<IGameModule>(module);
 
 builder
     .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -102,5 +114,9 @@ app.Map(
 );
 
 app.MapControllers();
+
+// Allow modules to map custom endpoints
+var activeModule = app.Services.GetRequiredService<IGameModule>();
+activeModule.MapEndpoints(app);
 
 app.Run();

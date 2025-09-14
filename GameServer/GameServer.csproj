@@ -10,6 +10,20 @@
       <ProjectReference Include="..\SharedLibrary\SharedLibrary.csproj" />
     </ItemGroup>
 
+    <!-- Exclude legacy MVC controllers now replaced by module endpoints -->
+    <ItemGroup>
+  <Compile Remove="Controllers/LeaderboardController.cs" />
+  <Compile Remove="Controllers/PlayerController.cs" />
+  <Compile Remove="Controllers/ShopController.cs" />
+    </ItemGroup>
+
+    <!-- Exclude deprecated DefaultGame module files -->
+    <ItemGroup>
+      <Compile Remove="GameModules/DefaultGame/**/*.cs" />
+    </ItemGroup>
+
+    
+
     <ItemGroup>
       <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.7" />
       <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="9.0.7" />
